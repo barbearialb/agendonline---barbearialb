@@ -184,7 +184,8 @@ telefone = st.text_input("Telefone")
 data_obj = st.date_input("Data", min_value=datetime.today())
 data = data_obj.strftime('%d/%m/%Y')
 barbeiro = st.selectbox("Escolha o barbeiro", barbeiros)
-status_horarios = obter_status_horarios(data, barbeiro)
+status_horarios, agendamentos_distribuidos = obter_status_horarios(data, barbeiro)
+
 
 # Mostrar horários com bolinhas coloridas
 status_horarios = obter_status_horarios(data)
