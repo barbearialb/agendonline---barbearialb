@@ -96,16 +96,27 @@ def cancelar_agendamento(data, horario, telefone):
         st.error(f"Erro ao acessar o Firestore: {e}")
         return None, None
 
-# Verificar status dos horários com bloqueio de 2 serviços
-import random
 
 def obter_status_horarios(data, barbeiro=None):
+    """
+    Função que obtém os status dos horários, levando em consideração os barbeiros
+    e os agendamentos existentes.
+    """
     horarios_status = {h: "disponivel" for h in horarios}
     ocupacoes = {h: [] for h in horarios}
     bloqueios_extra = {}
     agendamentos_distribuidos = {}
 
+    # Bloquear horários entre 12h e 14h (exceto sábado)
+    dia_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
+    if dia_semana < 5:  # Segunda a sexta
+        for h in horarios:
+            hora_int = int(h[:2])
+            if 12 <= hora_int < 14:
+                horarios_status[h] = "bloqueado"
+
     try:
+        # Busca os agendamentos já existentes para o dia especificado
         docs = db.collection('agendamentos').where('data', '==', data).stream()
 
         for doc in docs:
@@ -113,9 +124,10 @@ def obter_status_horarios(data, barbeiro=None):
             h = agendamento['horario']
             b = agendamento['barbeiro']
             
+            # Armazena quais barbeiros estão ocupados em cada horário
             ocupacoes[h].append(b)
 
-            # Se for corte + barba, bloqueia o próximo horário
+            # Se o agendamento for corte + barba, bloqueia o próximo horário
             if len(agendamento['servicos']) == 2 and "Barba" in agendamento['servicos']:
                 idx = horarios.index(h)
                 if idx + 1 < len(horarios):
@@ -124,7 +136,7 @@ def obter_status_horarios(data, barbeiro=None):
                         bloqueios_extra[h_next] = []
                     bloqueios_extra[h_next].append(b)
 
-        # Determina o status de cada horário
+        # Atualiza o status dos horários conforme a ocupação dos barbeiros
         for h in horarios:
             barbeiros_ocupados = ocupacoes[h]
             if len(barbeiros_ocupados) == len(barbeiros) - 1:
@@ -132,11 +144,16 @@ def obter_status_horarios(data, barbeiro=None):
             elif len(barbeiros_ocupados) > 0:
                 horarios_status[h] = "parcial"
 
+        # Atualiza o status para horários bloqueados extras (corte + barba)
         for h, bloqueados in bloqueios_extra.items():
             if len(bloqueados) == len(barbeiros) - 1:
                 horarios_status[h] = "ocupado"
             else:
                 horarios_status[h] = "parcial"
+
+        # Agora, se um barbeiro for escolhido, atualizamos os horários
+        if barbeiro:
+            horarios_status = atualizar_status_barbeiro(horarios_status, barbeiro, horarios, ocupacoes)
 
         # Atribui barbeiros aos horários disponíveis
         if barbeiro is None:
@@ -154,21 +171,46 @@ def obter_status_horarios(data, barbeiro=None):
     except Exception as e:
         print(f"Erro ao obter status dos horários: {e}")
         return {}, {}  # Retorna dicionários vazios em caso de erro
-
-        # Bloquear horário entre 12h e 14h (exceto sábado)
-        dia_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
-        if dia_semana < 5:  # Segunda a sexta
-            for h in horarios:
-                hora_int = int(h[:2])
-                if 12 <= hora_int < 14:
-                    horarios_status[h] = "bloqueado"
-
-    except Exception as e:
-        st.error(f"Erro ao buscar agendamentos: {e}")
-
+    
+# Função que atualiza o status dos horários conforme o barbeiro escolhido
+def atualizar_status_barbeiro(horarios_status, barbeiro, horarios, ocupacoes):
+    """
+    Atualiza os status dos horários quando um barbeiro é escolhido ou alterado.
+    """
+    for h in horarios:
+        if barbeiro in ocupacoes[h]:  # O barbeiro já está ocupado nesse horário
+            horarios_status[h] = "ocupado"
+        elif len(ocupacoes[h]) > 0:  # Caso haja outro barbeiro já agendado
+            horarios_status[h] = "parcial"
+        else:  # Caso o horário esteja disponível
+            horarios_status[h] = "disponivel"
     return horarios_status
 
-# INTERFACE STREAMLIT
+def atualizar_cor_disponibilidade(data, horario, barbeiro_selecionado, horarios_status):
+    try:
+        docs = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).where('barbeiro', '==', barbeiro_selecionado).stream()
+
+        if docs:
+            return "ocupado"  # Vermelho
+        else:
+            return "disponivel"  # Verde
+
+    except Exception as e:
+        print(f"Erro ao verificar a disponibilidade: {e}")
+        return "erro"  # Erro
+
+# Função que lida com a seleção do barbeiro e horário
+def selecionar_barbeiro_e_horario(data, horario, barbeiro_selecionado, horarios_status):
+    horario_cor = atualizar_cor_disponibilidade(data, horario, barbeiro_selecionado, horarios_status)
+
+    if horario_cor == "ocupado":
+        print("Horário ocupado! Cor vermelha.")
+    elif horario_cor == "disponivel":
+        print("Horário disponível! Cor verde.")
+    else:
+        print("Erro ao verificar o horário.")
+
+#Interface de Usuário
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
 st.image("https://github.com/barbearialb/agendonline---barbearialb/blob/main/icone.png?raw=true", use_container_width=True)
@@ -182,10 +224,7 @@ data = data_obj.strftime('%d/%m/%Y')
 barbeiro = st.selectbox("Escolha o barbeiro", barbeiros)
 status_horarios, agendamentos_distribuidos = obter_status_horarios(data, barbeiro)
 
-
 # Mostrar horários com bolinhas coloridas
-status_horarios, agendamentos_distribuidos = obter_status_horarios(data)
-
 horarios_disponiveis_para_selecao = []
 horarios_coloridos = []
 
