@@ -184,12 +184,15 @@ status_horarios, agendamentos_distribuidos = obter_status_horarios(data, barbeir
 
 
 # Mostrar horários com bolinhas coloridas
-status_horarios = obter_status_horarios(data)
+status_horarios, agendamentos_distribuidos = obter_status_horarios(data)
+
 horarios_disponiveis_para_selecao = []
 horarios_coloridos = []
 
+# Verifica se a chave 'h' existe em status_horarios antes de tentar acessar
 for h in horarios:
-    status = status_horarios[h]
+    status = status_horarios.get(h, "disponivel")  # Se 'h' não existir, assume 'disponivel'
+    
     if status == "ocupado":
         horarios_coloridos.append(f"🔴 {h}")
     elif status == "parcial":
@@ -202,6 +205,7 @@ for h in horarios:
 horario_index = st.selectbox("Horário", list(range(len(horarios_coloridos))),
                              format_func=lambda x: horarios_coloridos[x])
 horario = horarios[horario_index]
+
 
 def escolher_barbeiro(data, horario):
     """Escolhe um barbeiro disponível ou aleatoriamente se ambos estiverem livres."""
