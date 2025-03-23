@@ -190,60 +190,27 @@ def atualizar_status_barbeiro(horarios_status, barbeiro, horarios, ocupacoes):
     return horarios_status
 
 # Lista de barbeiros
+# Definindo os barbeiros
 barbeiros = {
     "Lucas Borges": "Barbeiro 1",
     "Aluizio": "Barbeiro 2",
 }
 
-# Função para escolher automaticamente o barbeiro
-def escolher_barbeiro_automatico():
-    # Verifica se há barbeiros disponíveis
-    if "Lucas Borges" not in barbeiros:
-        return "Aluizio"  # Se Lucas não estiver disponível, escolhe Aluizio
-    elif "Aluizio" not in barbeiros:
-        return "Lucas Borges"  # Se Aluizio não estiver disponível, escolhe Lucas
-    return "Lucas Borges"  # Se ambos estiverem disponíveis, escolhe o primeiro
+# Função para escolher automaticamente o barbeiro disponível
+def escolher_barbeiro_automatico(ocupacoes, horarios):
+    for barbeiro in barbeiros.keys():
+        # Verifica se o barbeiro está ocupado em algum horário
+        ocupado = False
+        for horario in horarios:
+            if barbeiro in ocupacoes.get(horario, []):
+                ocupado = True
+                break
+        
+        if not ocupado:
+            return barbeiro  # Retorna o barbeiro disponível
+    
+    return None  # Retorna None se não houver barbeiro disponível
 
-# Função para atualizar a cor e status da disponibilidade
-def atualizar_cor_disponibilidade(data, horario, barbeiro, status_horarios, nome, telefone, servicos_selecionados):
-    # Verificação do status do horário
-    status = status_horarios.get(horario, "disponivel")  # Valor padrão é "disponivel"
-
-    # Verifica se o horário está ocupado ou bloqueado
-    if status in ["ocupado", "bloqueado"]:
-        return "ocupado"
-
-    # Validação do número de serviços selecionados
-    if len(servicos_selecionados) > 2:
-        return "erro"  # Erro: Mais de dois serviços selecionados
-    elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
-        return "erro"  # Erro: Dois serviços selecionados sem incluir "Barba"
-
-    # Define automaticamente o barbeiro, se necessário
-    if barbeiro == "Sem preferência" or not barbeiro:
-        barbeiro = escolher_barbeiro_automatico()
-        if not barbeiro:
-            return "erro"  # Erro: Sem barbeiros disponíveis
-
-    # Salvar o agendamento no Firestore (ou outro banco de dados)
-    salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro)
-
-    # Atualizar o status do horário para "ocupado"
-    status_horarios[horario] = "ocupado"
-
-    # Retornar o status atualizado
-    return "ocupado" if status_horarios[horario] == "ocupado" else "disponivel"
-
-# Função que lida com a seleção do barbeiro e horário
-def selecionar_barbeiro_e_horario(data, horario, barbeiro_selecionado, horarios_status):
-    horario_cor = atualizar_cor_disponibilidade(data, horario, barbeiro_selecionado, horarios_status)
-
-    if horario_cor == "ocupado":
-        print("Horário ocupado! Cor vermelha.")
-    elif horario_cor == "disponivel":
-        print("Horário disponível! Cor verde.")
-    else:
-        print("Erro ao verificar o horário.")
 
 # Definição da função bloquear_horarios
 def bloquear_horarios(data, horarios):
@@ -342,6 +309,8 @@ def confirmar_agendamento(data, horario, barbeiro_selecionado, nome, telefone):
             status_horarios, erro = obter_status_horarios(data)
 
             if status_horarios is None:
+
+
                 st.error(f"Erro ao obter status dos horários: {erro}")
                 return
 
@@ -362,6 +331,34 @@ def confirmar_agendamento(data, horario, barbeiro_selecionado, nome, telefone):
             st.error(f"Erro ao confirmar o agendamento: {e}")
     else:
         st.error(f"Não é possível agendar para o horário {horario} no dia {data}, pois ele está ocupado.")
+
+def atualizar_cor_disponibilidade(data, horario, barbeiro, status_horarios, nome, telefone, servicos_selecionados, ocupacoes, horarios):
+    # Se o usuário escolheu "Sem preferência" ou não informou barbeiro, escolhe automaticamente
+    if barbeiro == "Sem preferência" or not barbeiro:
+        barbeiro = escolher_barbeiro_automatico(ocupacoes, horarios)  # Agora a função está definida corretamente
+        if not barbeiro:
+            # Se não houver barbeiro disponível, retorna erro
+            return "erro"
+    
+    # Verifica o status do horário (ocupado, bloqueado, etc.)
+    status = status_horarios.get(horario, "disponivel")
+    if status in ["ocupado", "bloqueado"]:
+        return "ocupado"
+    
+    # Valida os serviços selecionados
+    if len(servicos_selecionados) > 2:
+        return "erro"
+    elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
+        return "erro"
+    
+    # Salva o agendamento
+    salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro)
+    
+    # Atualiza o status do horário para 'ocupado'
+    status_horarios[horario] = "ocupado"
+    
+    # Retorna o status para que o código principal possa exibir a cor correspondente
+    return "ocupado"
 
 #Interface de Usuário
 st.title("Barbearia Lucas Borges - Agendamentos")
