@@ -69,7 +69,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
 
     try:
-        # Verificar se já existe um agendamento para esse horário
+        # Verificar se já existe um agendamento para esse horário diretamente no Firebase
         if agendamento_ref.get().exists:
             st.error("Já existe um agendamento para esse horário.")
             return None
@@ -88,6 +88,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     except Exception as e:
         st.error(f"Erro ao salvar o agendamento: {e}")
         return None
+
 
 # Cancelar agendamento
 def cancelar_agendamento(data, horario, telefone):
@@ -116,14 +117,6 @@ def obter_status_horarios(data, barbeiro=None):
     ocupacoes = {h: [] for h in horarios}
     bloqueios_extra = {}
     agendamentos_distribuidos = {}
-
-    # Bloquear horários entre 12h e 14h (exceto sábado)
-    dia_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
-    if dia_semana < 5:  # Segunda a sexta
-        for h in horarios:
-            hora_int = int(h[:2])
-            if 12 <= hora_int < 14:
-                horarios_status[h] = "bloqueado"
 
     try:
         # Busca os agendamentos já existentes para o dia especificado
@@ -196,20 +189,57 @@ def atualizar_status_barbeiro(horarios_status, barbeiro, horarios, ocupacoes):
             horarios_status[h] = "disponivel"
     return horarios_status
 
-def atualizar_cor_disponibilidade(data, horario, barbeiro_selecionado, horarios_status):
-    try:
-        # Consulta ao Firestore para verificar se há agendamento no horário
-        docs = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).where('barbeiro', '==', barbeiro_selecionado).stream()
+def atualizar_cor_disponibilidade(data, horario, barbeiro, status_horarios, nome, telefone, servicos_selecionados):
+    # Verificação do status do horário (ocupado ou não)
+    status = status_horarios.get(horario, "disponivel")  # Valor padrão é "disponível"
+    
+    # Se o horário estiver ocupado ou bloqueado, exibe erro e não faz o agendamento
+    if status == "ocupado" or status == "bloqueado":
+        return "O horário está ocupado. Escolha outro.", None
+    
+    # Se o horário estiver disponível, realizar o agendamento
+    if len(servicos_selecionados) > 2:
+        return "Você pode agendar no máximo 2 serviços, sendo o segundo sempre a barba.", None
+    elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
+        return "Se você escolher dois serviços, o segundo deve ser a barba.", None
 
-        # Verificar se há agendamentos para o horário e barbeiro selecionados
-        if any(docs):  # Verifica se o iterador docs contém pelo menos um documento
-            return "ocupado"  # O horário está ocupado, retorna "ocupado" (vermelho)
-        else:
-            return "disponivel"  # O horário está disponível, retorna "disponível" (verde)
+    # Se "Sem preferência" for escolhido, definir automaticamente o barbeiro
+    if barbeiro == "Sem preferência" or not barbeiro:
+        barbeiro = escolher_barbeiro(data, horario)
+        if not barbeiro:
+            return "Não há barbeiros disponíveis para este horário. Escolha outro.", None
 
-    except Exception as e:
-        print(f"Erro ao verificar a disponibilidade: {e}")
-        return "erro"  # Retorna erro caso haja algum problema
+    # Se passou todas as validações, salve o agendamento
+    resumo = f"""
+    Nome: {nome}
+    Telefone: {telefone}
+    Data: {data}
+    Horário: {horario}
+    Barbeiro: {barbeiro}
+    Serviços: {', '.join(servicos_selecionados)}
+    """
+
+    # Salvar o agendamento no Firestore
+    salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro)
+
+    # Atualizar o status do horário para 'ocupado'
+    status_horarios[horario] = "ocupado"
+
+    # Determinar a cor baseada no status
+    if status_horarios[horario] == "ocupado":
+        cor = "🔴"  # Vermelho para ocupado
+        mensagem_status = "O horário foi ocupado!"
+    elif status_horarios[horario] == "parcial":
+        cor = "🟡"  # Amarelo para parcialmente ocupado
+        mensagem_status = "O horário está parcialmente ocupado."
+    else:
+        cor = "🟢"  # Verde para disponível
+        mensagem_status = "O horário está disponível."
+
+    # Enviar confirmação por e-mail
+    enviar_email("Agendamento Confirmado", resumo)
+
+    return mensagem_status, cor
 
 # Função que lida com a seleção do barbeiro e horário
 def selecionar_barbeiro_e_horario(data, horario, barbeiro_selecionado, horarios_status):
@@ -222,30 +252,50 @@ def selecionar_barbeiro_e_horario(data, horario, barbeiro_selecionado, horarios_
     else:
         print("Erro ao verificar o horário.")
 
+# Definição da função bloquear_horarios
+def bloquear_horarios(data, horarios):
+    dia_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
+    horarios_status = {}
+
+    if dia_semana < 5:  # Segunda a sexta-feira
+        for h in horarios:
+            hora_int = int(h[:2])
+            if 12 <= hora_int < 14:
+                horarios_status[h] = "bloqueado"
+            else:
+                horarios_status[h] = "disponível"
+    elif dia_semana == 5:  # Sábado
+        for h in horarios:
+            horarios_status[h] = "disponível"
+    else:  # Domingo
+        for h in horarios:
+            horarios_status[h] = "disponível"
+
+    return horarios_status
+
 # Função de confirmação de agendamento
 def confirmar_agendamento(data, horario, barbeiro_selecionado, nome, telefone):
-    # Verificar a disponibilidade do horário
-    if verificar_disponibilidade(data, horario):
-        # Se o horário estiver disponível, prosseguir com o agendamento
-        try:
-            chave_agendamento = f"{data}_{horario}"
-            agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+    chave_agendamento = f"{data}_{horario}"
+    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
 
-            # Salva o agendamento no Firestore
-            agendamento_ref.set({
-                'data': data,
-                'horario': horario,
-                'barbeiro': barbeiro_selecionado,
-                'nome': nome,
-                'telefone': telefone,
-                'status': 'confirmado'
-            })
-
-            st.success(f"Agendamento confirmado para {horario} no dia {data}.")
-        except Exception as e:
-            st.error(f"Erro ao confirmar o agendamento: {e}")
-    else:
-        st.error(f"Não é possível agendar para o horário {horario} no dia {data}, pois ele está ocupado.")
+    # Verificar se já existe um agendamento para esse horário diretamente no Firebase
+    if agendamento_ref.get().exists:
+        st.error(f"Não é possível agendar para o horário {horario} no dia {data}, pois ele já está ocupado.")
+        return
+    
+    try:
+        # Salva o agendamento no Firestore
+        agendamento_ref.set({
+            'data': data,
+            'horario': horario,
+            'barbeiro': barbeiro_selecionado,
+            'nome': nome,
+            'telefone': telefone,
+            'status': 'confirmado'
+        })
+        st.success(f"Agendamento confirmado para {horario} no dia {data}.")
+    except Exception as e:
+        st.error(f"Erro ao confirmar o agendamento: {e}")
 
 # Função de verificação de disponibilidade
 def verificar_disponibilidade(data, horario):
@@ -275,6 +325,51 @@ def escolher_barbeiro(data, horario):
         return random.choice(barbeiros_disponiveis)  # Se ambos estão livres, escolher aleatoriamente
     else:
         return None  # Se ambos estão ocupados
+    
+def confirmar_agendamento(data, horario, barbeiro_selecionado, nome, telefone):
+    # Verificar a disponibilidade do horário
+    if verificar_disponibilidade(data, horario):
+        # Se o horário estiver disponível, prosseguir com o agendamento
+        try:
+            chave_agendamento = f"{data}_{horario}"
+            agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+
+            # Salva o agendamento no Firestore
+            agendamento_ref.set({
+                'data': data,
+                'horario': horario,
+                'barbeiro': barbeiro_selecionado,
+                'nome': nome,
+                'telefone': telefone,
+                'status': 'confirmado'
+            })
+
+            st.success(f"Agendamento confirmado para {horario} no dia {data}.")
+            
+            # Agora mudar a cor do horário baseado no barbeiro selecionado
+            if barbeiro_selecionado != "Sem preferência":
+                # Atualizar a cor do horário de acordo com o barbeiro
+                status_horarios, _ = obter_status_horarios(data)
+                status = status_horarios.get(horario, "disponivel")  # Definindo como 'disponível' por padrão
+                if status == "ocupado":
+                    cor = "🔴"  # Vermelho para ocupado
+                    mensagem_status = f"O horário {horario} está ocupado. {barbeiro_selecionado} foi alocado."
+                elif status == "parcial":
+                    cor = "🟡"  # Amarelo para parcialmente ocupado
+                    mensagem_status = f"O horário {horario} está parcialmente ocupado. {barbeiro_selecionado} será alocado."
+                else:
+                    cor = "🟢"  # Verde para disponível
+                    mensagem_status = f"O horário {horario} está disponível. {barbeiro_selecionado} foi alocado."
+
+                # Exibe o status com a cor associada
+                st.markdown(f"{cor} {mensagem_status}")
+            else:
+                st.error("Barbeiro não selecionado corretamente. Tente novamente.")
+                
+        except Exception as e:
+            st.error(f"Erro ao confirmar o agendamento: {e}")
+    else:
+        st.error(f"Não é possível agendar para o horário {horario} no dia {data}, pois ele está ocupado.")
 
 #Interface de Usuário
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -336,52 +431,87 @@ for s, p in servicos_com_preco.items():
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
 
 # Validação e Agendamento
+# Função de confirmação de agendamento
+
 if st.button("Confirmar Agendamento"):
-    if nome and telefone and servicos_selecionados:
-        # Verificação de quantidade de serviços selecionados
-        if len(servicos_selecionados) > 2:
-            st.error("Você pode agendar no máximo 2 serviços, sendo o segundo sempre a barba.")
-        elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
-            st.error("Se você escolher dois serviços, o segundo deve ser a barba.")
-        # Verificar se o horário está ocupado ou bloqueado
-        elif status_horarios[horario] == "ocupado" or status_horarios[horario] == "bloqueado":
-            st.error("O horário está ocupado. Escolha outro.")
-        else:
-            # Se "Sem preferência" for escolhido, definir automaticamente o barbeiro
-            if barbeiro == "Sem preferência" or not barbeiro:
-                barbeiro = escolher_barbeiro(data, horario)
-                if not barbeiro:
-                    st.error("Não há barbeiros disponíveis para este horário. Escolha outro.")
-                    st.stop()
+    # Dados do cliente e agendamento
+    nome_cliente = st.session_state.get("nome", "").strip()
+    telefone_cliente = st.session_state.get("telefone", "").strip()
+    data_agendamento = st.session_state.get("data", "")
+    horario_agendamento = st.session_state.get("horario", "")
+    servicos_selecionados = st.session_state.get("servicos", [])
+    barbeiro_selecionado = st.session_state.get("barbeiro", "Não informado")
 
-            # Exibir um resumo do agendamento
-            resumo = f"""
-            Nome: {nome}
-            Telefone: {telefone}
-            Data: {data}
-            Horário: {horario}
-            Barbeiro: {barbeiro}
-            Serviços: {', '.join(servicos_selecionados)}
-            """
+    # Validações:
+    if not nome_cliente:
+        st.error("O campo 'Nome' é obrigatório!")
+        st.stop()
+    if not telefone_cliente:
+        st.error("O campo 'Telefone' é obrigatório!")
+        st.stop()
+    if not servicos_selecionados:
+        st.error("Você deve escolher pelo menos um serviço!")
+        st.stop()
+    if len(servicos_selecionados) > 2:
+        st.error("Você pode selecionar no máximo dois serviços!")
+        st.stop()
+    if len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
+        st.error("Ao escolher dois serviços, um deles deve ser a Barba!")
+        st.stop()
 
-            # Salvar o agendamento no Firestore
-            salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro)
+    # Criação do resumo do agendamento
+    resumo_agendamento = f"""
+    Nome: {nome_cliente}
+    Telefone: {telefone_cliente}
+    Data: {data_agendamento}
+    Horário: {horario_agendamento}
+    Barbeiro: {barbeiro_selecionado}
+    Serviços: {', '.join(servicos_selecionados)}
+    """
 
-            # Atualizar o status do horário para 'ocupado'
-            status_horarios[horario] = "ocupado"
+    # Simular salvamento do agendamento
+    sucesso, status_horarios_atualizado = salvar_agendamento(
+        nome=nome_cliente,
+        telefone=telefone_cliente,
+        data=data_agendamento,
+        horario=horario_agendamento,
+        servicos=servicos_selecionados,
+        barbeiro=barbeiro_selecionado
+    )
 
-            # Atualizar a cor de disponibilidade do horário na interface
-            atualizar_cor_disponibilidade(data, horario, barbeiro, status_horarios)
+    if sucesso:
+        # Enviar notificação ao administrador
+        enviar_email(
+            "Novo Agendamento Confirmado",
+            f"Um novo agendamento foi confirmado:\n\n{resumo_agendamento}"
+        )
 
-            # Enviar confirmação por e-mail
-            enviar_email("Agendamento Confirmado", resumo)
+        # Exibir mensagem de sucesso ao cliente
+        st.success("Agendamento confirmado com sucesso!")
+        st.info("Resumo do seu agendamento:\n" + resumo_agendamento)
 
-            # Feedback para o usuário
-            st.success("Agendamento confirmado com sucesso!")
-            st.info("Resumo do agendamento:\n" + resumo)
-            
+        # Exibir mensagem visual com a logo ✅
+        st.markdown("### ✅ Seu agendamento foi confirmado com sucesso!")
+
+        # Atualiza as cores dos horários para refletir a nova situação
+        horarios_coloridos = []
+        for h in horarios:
+            status = status_horarios_atualizado.get(h, "disponível")  # Adiciona um valor padrão
+            if status == "ocupado":
+                horarios_coloridos.append(f"🔴 {h}")
+            elif status == "parcial":
+                horarios_coloridos.append(f"🟡 {h}")
+            else:
+                horarios_coloridos.append(f"🟢 {h}")
+
+        # Atualiza o selectbox de horários após a confirmação
+        horario_index = st.selectbox("Horário", list(range(len(horarios_coloridos))),
+                                     format_func=lambda x: horarios_coloridos[x])
+
     else:
-        st.error("Preencha todos os campos e selecione pelo menos 1 serviço.")
+        # Caso ocorra algum erro no salvamento
+        st.error("Ocorreu um erro ao confirmar o agendamento. Tente novamente.")
+
 
 # Aba Cancelamento
 st.subheader("Cancelar Agendamento")
@@ -393,6 +523,7 @@ if st.button("Cancelar Agendamento"):
     cancelado, status_horarios_atualizado = cancelar_agendamento(data, horario_cancelar, telefone_cancelar)
 
     if cancelado:
+        # Criação do resumo do cancelamento
         resumo_cancel = f"""
         Nome: {cancelado['nome']}
         Telefone: {cancelado['telefone']}
@@ -410,7 +541,7 @@ if st.button("Cancelar Agendamento"):
         # Atualiza as cores dos horários
         horarios_coloridos = []
         for h in horarios:
-            status = status_horarios_atualizado[h]
+            status = status_horarios_atualizado.get(h, "disponível")  # Adiciona um valor padrão
             if status == "ocupado":
                 horarios_coloridos.append(f"🔴 {h}")
             elif status == "parcial":
