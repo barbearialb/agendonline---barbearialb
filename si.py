@@ -97,7 +97,9 @@ def cancelar_agendamento(data, horario, telefone):
         return None, None
 
 # Verificar status dos horários com bloqueio de 2 serviços
-def obter_status_horarios(data):
+import random
+
+def obter_status_horarios(data, barbeiro=None):
     horarios_status = {h: "disponivel" for h in horarios}
     ocupacoes = {h: [] for h in horarios}
     bloqueios_extra = {}
@@ -123,16 +125,39 @@ def obter_status_horarios(data):
 
         for h in horarios:
             barbeiros_ocupados = ocupacoes[h]
-            if len(barbeiros_ocupados) == len(barbeiros) - 1:  
+
+            if len(barbeiros_ocupados) == len(barbeiros):  
                 horarios_status[h] = "ocupado"
             elif len(barbeiros_ocupados) > 0:
                 horarios_status[h] = "parcial"
 
         for h, bloqueados in bloqueios_extra.items():
-            if len(bloqueados) == len(barbeiros) - 1:
+            if len(bloqueados) == len(barbeiros):
                 horarios_status[h] = "ocupado"
             else:
                 horarios_status[h] = "parcial"
+
+        # Se barbeiro não foi informado, escolher um disponível
+        if barbeiro is None:
+            agendamentos_distribuidos = {}
+            for h, status in horarios_status.items():
+                if status == "disponivel" or status == "parcial":
+                    barbeiros_livres = [b for b in barbeiros if b not in ocupacoes[h]]
+                    
+                    if barbeiros_livres:
+                        barbeiro_escolhido = random.choice(barbeiros_livres)
+                    else:
+                        barbeiro_escolhido = None  # Todos ocupados, informar usuário
+
+                    agendamentos_distribuidos[h] = barbeiro_escolhido
+
+            return horarios_status, agendamentos_distribuidos
+
+        return horarios_status
+
+    except Exception as e:
+        print(f"Erro ao obter status dos horários: {e}")
+        return {}, {}
 
         # Bloquear horário entre 12h e 14h (exceto sábado)
         dia_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
