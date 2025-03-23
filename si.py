@@ -200,8 +200,12 @@ def atualizar_cor_disponibilidade(data, horario, barbeiro, status_horarios, nome
     # Se o horário estiver disponível, realizar o agendamento
     if len(servicos_selecionados) > 2:
         return "Você pode agendar no máximo 2 serviços, sendo o segundo sempre a barba.", None
-    elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
-        return "Se você escolher dois serviços, o segundo deve ser a barba.", None
+    elif len(servicos_selecionados) == 2:
+        # Verifica se "Barba" está entre os serviços selecionados e é o segundo serviço
+        if "Barba" not in servicos_selecionados:
+            return "Se você escolher dois serviços, o segundo deve ser a barba.", None
+        elif servicos_selecionados.index("Barba") != 1:  # Garante que a barba é o segundo
+            return "O segundo serviço deve ser a barba.", None
 
     # Se "Sem preferência" for escolhido, definir automaticamente o barbeiro
     if barbeiro == "Sem preferência" or not barbeiro:
@@ -409,23 +413,29 @@ if barbeiro != "Sem preferência":
     horario = horarios[horario_index]
 
     # Chama a função para atualizar a cor do horário
-    status_cor = atualizar_cor_disponibilidade(data, horario, barbeiro, status_horarios)
-    
-    # Mudar a cor dinamicamente dependendo do status
-    if status_cor == "ocupado":
-        st.markdown(f"<p style='color:red;'>Horário {horario} está ocupado.</p>", unsafe_allow_html=True)
-    elif status_cor == "disponivel":
-        st.markdown(f"<p style='color:green;'>Horário {horario} está disponível.</p>", unsafe_allow_html=True)
-    elif status_cor == "erro":
-        st.markdown(f"<p style='color:orange;'>Erro ao verificar disponibilidade.</p>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<p style='color:yellow;'>Escolha um barbeiro para atualizar a disponibilidade.</p>", unsafe_allow_html=True)
+    # Certifique-se de que servicos_selecionados foi definida anteriormente
+# Exemplo de valores que você quer passar
+servicos_selecionados = list(servicos.keys()) # Lista com os serviços que o cliente escolheu
 
-# Exibir preços
+# Chamada da função para atualizar a disponibilidade
+status_cor = atualizar_cor_disponibilidade(data, horario, barbeiro, status_horarios, nome, telefone, servicos_selecionados)
+
+# Mudar a cor dinamicamente dependendo do status
+if status_cor == "ocupado":
+    st.markdown(f"<p style='color:red;'>Horário {horario} está ocupado.</p>", unsafe_allow_html=True)
+elif status_cor == "disponivel":
+    st.markdown(f"<p style='color:green;'>Horário {horario} está disponível.</p>", unsafe_allow_html=True)
+elif status_cor == "erro":
+    st.markdown(f"<p style='color:orange;'>Erro ao verificar disponibilidade.</p>", unsafe_allow_html=True)
+else:
+    st.markdown(f"<p style='color:yellow;'>Escolha um barbeiro para atualizar a disponibilidade.</p>", unsafe_allow_html=True)
+
+# Exibir preços dos serviços
 servicos_com_preco = {s: f"R$ {p}" for s, p in servicos.items()}
 st.write("Preços dos serviços:")
 for s, p in servicos_com_preco.items():
     st.write(f"{s}: {p}")
+
 
 # Seleção de serviços
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
