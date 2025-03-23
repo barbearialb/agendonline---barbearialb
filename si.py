@@ -103,6 +103,7 @@ def obter_status_horarios(data, barbeiro=None):
     horarios_status = {h: "disponivel" for h in horarios}
     ocupacoes = {h: [] for h in horarios}
     bloqueios_extra = {}
+    agendamentos_distribuidos = {}
 
     try:
         docs = db.collection('agendamentos').where('data', '==', data).stream()
@@ -123,41 +124,36 @@ def obter_status_horarios(data, barbeiro=None):
                         bloqueios_extra[h_next] = []
                     bloqueios_extra[h_next].append(b)
 
+        # Determina o status de cada horário
         for h in horarios:
             barbeiros_ocupados = ocupacoes[h]
-
-            if len(barbeiros_ocupados) == len(barbeiros):  
+            if len(barbeiros_ocupados) == len(barbeiros) - 1:
                 horarios_status[h] = "ocupado"
             elif len(barbeiros_ocupados) > 0:
                 horarios_status[h] = "parcial"
 
         for h, bloqueados in bloqueios_extra.items():
-            if len(bloqueados) == len(barbeiros):
+            if len(bloqueados) == len(barbeiros) - 1:
                 horarios_status[h] = "ocupado"
             else:
                 horarios_status[h] = "parcial"
 
-        # Se barbeiro não foi informado, escolher um disponível
+        # Atribui barbeiros aos horários disponíveis
         if barbeiro is None:
-            agendamentos_distribuidos = {}
-            for h, status in horarios_status.items():
-                if status == "disponivel" or status == "parcial":
-                    barbeiros_livres = [b for b in barbeiros if b not in ocupacoes[h]]
-                    
-                    if barbeiros_livres:
-                        barbeiro_escolhido = random.choice(barbeiros_livres)
-                    else:
-                        barbeiro_escolhido = None  # Todos ocupados, informar usuário
+            for h in horarios:
+                if horarios_status[h] == "disponivel":
+                    barbeiro_disponivel = random.choice([b for b in barbeiros if b not in ocupacoes[h]])
+                    agendamentos_distribuidos[h] = barbeiro_disponivel
+        else:
+            for h in horarios:
+                if horarios_status[h] == "disponivel":
+                    agendamentos_distribuidos[h] = barbeiro  # Atribui o barbeiro especificado para o horário disponível
 
-                    agendamentos_distribuidos[h] = barbeiro_escolhido
-
-            return horarios_status, agendamentos_distribuidos
-
-        return horarios_status
+        return horarios_status, agendamentos_distribuidos
 
     except Exception as e:
         print(f"Erro ao obter status dos horários: {e}")
-        return {}, {}
+        return {}, {}  # Retorna dicionários vazios em caso de erro
 
         # Bloquear horário entre 12h e 14h (exceto sábado)
         dia_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
