@@ -56,6 +56,19 @@ servicos = {
 
 barbeiros = ["Lucas Borges", "Aluizio", "Sem preferência"]
 
+# Dicionário para armazenar agendamentos
+agenda = {horario: {"barbeiro": None, "status": "disponível"} for horario in horarios}
+
+# Bloquear horário de almoço (12h - 13h) de segunda a sexta
+for horario in ["12:00", "13:30"]:
+    agenda[horario]["status"] = "indisponível"
+
+def get_cor_status(status):
+    return {
+        "disponível": "🟢",
+        "indisponível": "🔴",
+        "sem preferência": "🟡"
+    }[status]
 
 # Função para enviar e-mail
 def enviar_email(assunto, mensagem):
@@ -217,8 +230,8 @@ st.subheader("Agendar Horário")
 nome = st.text_input("Nome")
 telefone = st.text_input("Telefone")
 data = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
-barbeiro = st.selectbox("Escolha o barbeiro", barbeiros)
-horarios_disponiveis = filtrar_horarios_disponiveis(data, barbeiro)
+barbeiro_escolhido = st.selectbox(" Escolha o barbeiro:", barbeiros)
+horarios_disponiveis = filtrar_horarios_disponiveis(data, barbeiros)
 
 # Exibir horários disponíveis com bolinhas coloridas
 st.markdown("### Horários Disponíveis:")
@@ -231,7 +244,7 @@ for horario in horarios_disponiveis:
         elif cor == "amarelo":
             status_str += f"🟡 {b} "
         elif cor == "vermelho":
-            status_str += f" {b} "
+            status_str += f"🔴 {b} "
         else:
             status_str += f"⚪ {b} (Erro) "
     st.markdown(f"{horario} - {status_str}")
@@ -249,7 +262,7 @@ for servico, preco in servicos_com_preco.items():
 # Validação dos serviços selecionados
 if st.button("Confirmar Agendamento"):
     if nome and telefone and servicos_selecionados:
-        if "Sem preferência" in barbeiro:
+        if "Sem preferência" in barbeiros:
             # Escolher barbeiro aleatoriamente
             barbeiros_disponiveis = [b for b in barbeiros if b != "Sem preferência" and atualizar_cores(data, horario)[b] == "verde"]
             if barbeiros_disponiveis:
@@ -285,7 +298,7 @@ if st.button("Confirmar Agendamento"):
                         elif cor == "amarelo":
                             st.markdown(f"🟡 {b}")
                         elif cor == "vermelho":
-                            st.markdown(f" {b}")
+                            st.markdown(f"🔴 {b}")
                         else:
                             st.markdown(f"⚪ {b} (Erro)")
 
@@ -324,7 +337,7 @@ if st.button("Cancelar Agendamento"):
                 elif cor == "amarelo":
                     st.markdown(f"🟡 {b}")
                 elif cor == "vermelho":
-                    st.markdown(f" {b}")
+                    st.markdown(f"🔴 {b}")
                 else:
                     st.markdown(f"⚪ {b} (Erro)")
 
