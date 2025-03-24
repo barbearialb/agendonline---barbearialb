@@ -177,17 +177,16 @@ def atualizar_cores(data, horario):
 
     try:
         # Consultando agendamentos para o horário e a data
-        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==',
-                                                                                       horario).stream()
-
-        # Verifique se a consulta retornou resultados
-        horarios_ocupados_lista = list(horarios_ocupados)  # Converte o resultado em uma lista
+        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
 
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
+        # Convertendo o resultado da consulta em uma lista
+        horarios_ocupados_lista = list(horarios_ocupados)
+
         for agendamento in horarios_ocupados_lista:
-            ag = agendamento.to_dict()  # Verificar se o documento
-        if ag:  # Verifica se o documento foi encontrado e não está vazio
+            ag = agendamento.to_dict()  # Obtendo o dicionário do documento
+            if ag:  # Verifica se o dicionário não está vazio
                 cores[ag['barbeiro']] = "vermelho"
 
         if cores["Lucas Borges"] == "vermelho" or cores["Aluizio"] == "vermelho":
