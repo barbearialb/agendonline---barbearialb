@@ -94,20 +94,25 @@ def atualizar_cores(data, horario):
 
     try:
         # Consultando agendamentos para o horário e a data
-        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
+        agendamentos_ref = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario)
+        agendamentos = agendamentos_ref.stream()
 
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
-        barbeiros_disponiveis = ["Lucas Borges", "Aluizio"] # Lista de barbeiros disponíveis
+        barbeiros_disponiveis = ["Lucas Borges", "Aluizio"]
 
         # Convertendo o resultado da consulta em uma lista
-        horarios_ocupados_lista = list(horarios_ocupados)
+        agendamentos_lista = list(agendamentos)
 
-        for agendamento in horarios_ocupados_lista:
-            ag = agendamento.to_dict()  # Obtendo o dicionário do documento
-            if ag:  # Verifica se o dicionário não está vazio
-                cores[ag['barbeiro']] = "vermelho"
-                if ag['barbeiro'] in barbeiros_disponiveis:
-                    barbeiros_disponiveis.remove(ag['barbeiro'])
+        st.write(f"Agendamentos para {data} {horario}: {agendamentos_lista}")  # Log dos agendamentos encontrados
+
+        for agendamento in agendamentos_lista:
+            agendamento_dict = agendamento.to_dict()
+            if agendamento_dict:
+                barbeiro = agendamento_dict.get('barbeiro')
+                if barbeiro:
+                    cores[barbeiro] = "vermelho"
+                    if barbeiro in barbeiros_disponiveis:
+                        barbeiros_disponiveis.remove(barbeiro)
 
         if len(barbeiros_disponiveis) == 1:
             cores["Sem preferência"] = "amarelo"
@@ -118,6 +123,8 @@ def atualizar_cores(data, horario):
             cores["Lucas Borges"] = "vermelho"
             cores["Aluizio"] = "vermelho"
             cores["Sem preferência"] = "vermelho"
+
+        st.write(f"Cores finais: {cores}")  # Log das cores finais
 
         return cores
 
@@ -160,7 +167,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
         else:
             st.error("Não há barbeiros disponíveis para este horário.")
             return
-        
+
     chave_agendamento = f"{data}_{horario}"
     db.collection('agendamentos').document(chave_agendamento).set({
         'nome': nome,
@@ -175,7 +182,8 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     if "Barba" in servicos and any(corte in servicos for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
         hora, minuto = map(int, horario.split(':'))
         proximo_horario = f"{hora + 1}:{minuto:02d}"
-        bloquear_horario(data, proximo_horario, barbeiro)
+        if proximo_horario in horarios: # Verifica se o proximo horário existe
+            bloquear_horario(data, proximo_horario, barbeiro) # Linha modificada
 
 
 # Função para cancelar agendamento no Firestore
@@ -192,7 +200,8 @@ def cancelar_agendamento(data, horario, telefone):
             if "Barba" in agendamento_cancelado['servicos'] and any(corte in agendamento_cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                 hora, minuto = map(int, horario.split(':'))
                 proximo_horario = f"{hora + 1}:{minuto:02d}"
-                desbloquear_horario(data, proximo_horario, agendamento_cancelado['barbeiro'])
+                if proximo_horario in horarios: # Verifica se o proximo horário existe
+                    desbloquear_horario(data, proximo_horario, agendamento_cancelado['barbeiro']) # Linha modificada
 
             return agendamento_cancelado  # Retorna os dados do agendamento cancelado
         else:
