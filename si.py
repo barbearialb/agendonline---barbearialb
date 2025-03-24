@@ -8,6 +8,7 @@ import json
 import calendar
 import google.api_core.exceptions
 import google.api_core.retry as retry
+import random
 
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -165,8 +166,6 @@ def desbloquear_horario(data, horario, barbeiro):
         bloqueio_ref.delete()
     except Exception as e:
         st.error(f"Erro ao desbloquear horário: {e}")
-
-
 # Função para filtrar horários disponíveis com base nos bloqueios
 def atualizar_cores(data, horario):
     try:
@@ -177,7 +176,8 @@ def atualizar_cores(data, horario):
 
     try:
         # Consultando agendamentos para o horário e a data
-        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
+        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==',
+                                                                                       horario).stream()
 
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
@@ -250,7 +250,15 @@ for servico, preco in servicos_com_preco.items():
 if st.button("Confirmar Agendamento"):
     if nome and telefone and servicos_selecionados:
         if "Sem preferência" in barbeiro:
-            barbeiro = "Sem preferência"
+            # Escolher barbeiro aleatoriamente
+            barbeiros_disponiveis = [b for b in barbeiros if b != "Sem preferência" and atualizar_cores(data, horario)[b] == "verde"]
+            if barbeiros_disponiveis:
+                barbeiro_escolhido = random.choice(barbeiros_disponiveis)
+            else:
+                barbeiro_escolhido = "Sem preferência" #Nenhum barbeiro disponível.
+
+            if barbeiro_escolhido != "Sem preferência":
+                barbeiro = barbeiro_escolhido
 
         if len(servicos_selecionados) > 2:
             st.error("Você pode agendar no máximo 2 serviços, sendo o segundo sempre a barba.")
@@ -321,6 +329,7 @@ if st.button("Cancelar Agendamento"):
                     st.markdown(f"⚪ {b} (Erro)")
 
             # Resumo do cancelamento
+           # Resumo do cancelamento
             resumo_cancelamento = f"""
             Nome: {cancelado['nome']}
             Telefone: {cancelado['telefone']}
@@ -329,8 +338,3 @@ if st.button("Cancelar Agendamento"):
             Barbeiro: {cancelado['barbeiro']}
             Serviços: {', '.join(cancelado['servicos'])}
             """
-            enviar_email("Agendamento Cancelado", resumo_cancelamento)
-            st.success("Agendamento cancelado com sucesso!")
-            st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
-        else:
-            st.error("Não há agendamento para o telefone informado nesse horário.")    
