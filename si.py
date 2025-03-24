@@ -9,7 +9,6 @@ import calendar
 import google.api_core.exceptions
 import google.api_core.retry as retry
 
-
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
 EMAIL = None
@@ -39,7 +38,6 @@ if FIREBASE_CREDENTIALS:
             firebase_admin.initialize_app(cred)
         except Exception as e:
             st.error(f"Erro ao inicializar o Firebase: {e}")
-    
 
 # Obter referência do Firestore
 db = firestore.client() if firebase_admin._apps else None
@@ -57,6 +55,7 @@ servicos = {
 
 barbeiros = ["Lucas Borges", "Aluizio", "Sem preferência"]
 
+
 # Função para enviar e-mail
 def enviar_email(assunto, mensagem):
     try:
@@ -72,6 +71,7 @@ def enviar_email(assunto, mensagem):
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
 
+
 # Função para salvar agendamento no Firestore
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     chave_agendamento = f"{data}_{horario}"
@@ -83,6 +83,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
         'data': data,
         'horario': horario
     })
+
 
 # Função para cancelar agendamento no Firestore
 def cancelar_agendamento(data, horario, telefone):
@@ -106,7 +107,8 @@ def cancelar_agendamento(data, horario, telefone):
     except Exception as e:
         st.error(f"Erro ao acessar o Firestore: {e}")
         return None
-    
+
+
 # Função para verificar disponibilidade do horário no Firebase
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
@@ -117,10 +119,6 @@ def verificar_disponibilidade(data, horario):
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
-        if doc.exists:
-            st.write(f"Horário {horario} no dia {data} já ocupado.")
-        else:
-            st.write(f"Horário {horario} no dia {data} disponível.")
         return not doc.exists  # Retorna True se o horário estiver disponível
     except google.api_core.exceptions.RetryError as e:
         st.error(f"Erro de conexão com o Firestore: {e}")
@@ -128,16 +126,18 @@ def verificar_disponibilidade(data, horario):
     except Exception as e:
         st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
         return False  # Retorna False em caso de erro
-    
+
+
 def filtrar_horarios_disponiveis(data, barbeiro):
     if not db:
         st.error("Firestore não inicializado.")
         return horarios  # Retorna todos os horários se o Firestore não estiver inicializado
-    
+
     try:
         bloqueios_ref = db.collection('bloqueios').where('data', '==', data)
         bloqueios = bloqueios_ref.stream()
-        horarios_bloqueados = [doc.to_dict()['horario'] for doc in bloqueios if doc.to_dict().get('barbeiro') == barbeiro]
+        horarios_bloqueados = [doc.to_dict()['horario'] for doc in bloqueios if
+                               doc.to_dict().get('barbeiro') == barbeiro]
 
         # Retornar apenas horários que não estão bloqueados
         horarios_disponiveis = [h for h in horarios if h not in horarios_bloqueados]
@@ -157,6 +157,7 @@ def bloquear_horario(data, horario, barbeiro):
         'timestamp': datetime.now()
     })
 
+
 def desbloquear_horario(data, horario, barbeiro):
     chave_bloqueio = f"{data}_{horario}_{barbeiro}"
     bloqueio_ref = db.collection('bloqueios').document(chave_bloqueio)
@@ -167,7 +168,7 @@ def desbloquear_horario(data, horario, barbeiro):
 
 
 # Função para filtrar horários disponíveis com base nos bloqueios
-def atualizar_cores(data, horario, barbeiro):
+def atualizar_cores(data, horario):
     try:
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
     except ValueError as e:
@@ -176,18 +177,17 @@ def atualizar_cores(data, horario, barbeiro):
 
     try:
         # Consultando agendamentos para o horário e a data
-        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
-        
+        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==',
+                                                                                       horario).stream()
+
         # Verifique se a consulta retornou resultados
         horarios_ocupados_lista = list(horarios_ocupados)  # Converte o resultado em uma lista
-        if not horarios_ocupados_lista:
-            st.write("Nenhum agendamento encontrado para este horário.")
-        
+
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
         for agendamento in horarios_ocupados_lista:
-            ag = agendamento.to_dict()  # Verificar se o documento existe antes de processar
-            if ag:  # Verifica se o documento foi encontrado e não está vazio
+            ag = agendamento.to_dict()  # Verificar se o documento
+        if ag:  # Verifica se o documento foi encontrado e não está vazio
                 cores[ag['barbeiro']] = "vermelho"
 
         if cores["Lucas Borges"] == "vermelho" or cores["Aluizio"] == "vermelho":
@@ -210,7 +210,8 @@ def atualizar_cores(data, horario, barbeiro):
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
-st.image("https://github.com/barbearialb/agendonline---barbearialb/blob/main/icone.png?raw=true", use_container_width=True)
+st.image("https://github.com/barbearialb/agendonline---barbearialb/blob/main/icone.png?raw=true",
+         use_container_width=True)
 
 # Aba de Agendamento
 st.subheader("Agendar Horário")
@@ -219,9 +220,25 @@ telefone = st.text_input("Telefone")
 data = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
 barbeiro = st.selectbox("Escolha o barbeiro", barbeiros)
 horarios_disponiveis = filtrar_horarios_disponiveis(data, barbeiro)
-horario = st.selectbox("Horário", horarios_disponiveis)
-cores = atualizar_cores(data, horario, barbeiro)
-st.markdown(f"**Status:** Lucas Borges: {cores['Lucas Borges']}, Aluizio: {cores['Aluizio']}, Sem preferência: {cores['Sem preferência']}")
+
+# Exibir horários disponíveis com bolinhas coloridas
+st.markdown("### Horários Disponíveis:")
+for horario in horarios_disponiveis:
+    cores = atualizar_cores(data, horario)
+    status_str = ""
+    for b, cor in cores.items():
+        if cor == "verde":
+            status_str += f"🟢 {b} "
+        elif cor == "amarelo":
+            status_str += f"🟡 {b} "
+        elif cor == "vermelho":
+            status_str += f" {b} "
+        else:
+            status_str += f"⚪ {b} (Erro) "
+    st.markdown(f"{horario} - {status_str}")
+
+horario = st.selectbox("Selecione o Horário", horarios_disponiveis)
+
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
 
 # Exibir os preços com o símbolo R$
@@ -239,7 +256,7 @@ if st.button("Confirmar Agendamento"):
         if len(servicos_selecionados) > 2:
             st.error("Você pode agendar no máximo 2 serviços, sendo o segundo sempre a barba.")
         elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
-            st.error("Se você escolher dois serviços, o segundo deve ser a barba.")    
+            st.error("Se você escolher dois serviços, o segundo deve ser a barba.")
         else:
             with st.spinner("Verificando disponibilidade..."):
                 if verificar_disponibilidade(data, horario):
@@ -248,15 +265,22 @@ if st.button("Confirmar Agendamento"):
 
                     # Caso dois serviços sejam selecionados, bloquear o próximo horário
                     if len(servicos_selecionados) == 2:
-                        horario_bloqueado = f"{int(horario.split(':')[0]) + 1}:{horario.split(':')[1]}"
-                        db.collection('agendamentos').document(f"{data}_{horario_bloqueado}").set({
-                            'barbeiro': barbeiro,
-                            'ocupado': True
-                        })
+                        hora, minuto = map(int, horario.split(':'))
+                        proximo_horario = f"{hora + 1}:{minuto:02d}"
+                        bloquear_horario(data, proximo_horario, barbeiro)
 
                     # Atualizar status dos barbeiros após o agendamento
-                    cores = atualizar_cores(data, horario, barbeiro)
-                    st.markdown(f"**Status atualizado:** Lucas Borges: {cores['Lucas Borges']}, Aluizio: {cores['Aluizio']}, Sem preferência: {cores['Sem preferência']}")
+                    cores = atualizar_cores(data, horario)
+                    st.markdown("### Status dos Barbeiros (Atualizado):")
+                    for b, cor in cores.items():
+                        if cor == "verde":
+                            st.markdown(f"🟢 {b}")
+                        elif cor == "amarelo":
+                            st.markdown(f"🟡 {b}")
+                        elif cor == "vermelho":
+                            st.markdown(f" {b}")
+                        else:
+                            st.markdown(f"⚪ {b} (Erro)")
 
                     # Resumo do agendamento
                     resumo = f"""
@@ -275,7 +299,6 @@ if st.button("Confirmar Agendamento"):
     else:
         st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
 
-
 # Aba de Cancelamento
 st.subheader("Cancelar Agendamento")
 telefone_cancelar = st.text_input("Telefone para Cancelamento")
@@ -286,9 +309,18 @@ if st.button("Cancelar Agendamento"):
         cancelado = cancelar_agendamento(data, horario_cancelar, telefone_cancelar)
         if cancelado:
             # Atualizar status dos barbeiros após o cancelamento
-            cores = atualizar_cores(data, horario_cancelar, cancelado['barbeiro'])
-            st.markdown(f"**Status atualizado:** Lucas Borges: {cores['Lucas Borges']}, Aluizio: {cores['Aluizio']}, Sem preferência: {cores['Sem preferência']}")
-        
+            cores = atualizar_cores(data, horario_cancelar)
+            st.markdown("### Status dos Barbeiros (Atualizado):")
+            for b, cor in cores.items():
+                if cor == "verde":
+                    st.markdown(f"🟢 {b}")
+                elif cor == "amarelo":
+                    st.markdown(f"🟡 {b}")
+                elif cor == "vermelho":
+                    st.markdown(f" {b}")
+                else:
+                    st.markdown(f"⚪ {b} (Erro)")
+
             # Resumo do cancelamento
             resumo_cancelamento = f"""
             Nome: {cancelado['nome']}
@@ -302,4 +334,4 @@ if st.button("Cancelar Agendamento"):
             st.success("Agendamento cancelado com sucesso!")
             st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
         else:
-            st.error("Não há agendamento para o telefone informado nesse horário.")
+            st.error("Não há agendamento para o telefone informado nesse horário.")    
