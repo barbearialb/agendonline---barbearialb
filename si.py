@@ -9,6 +9,7 @@ import calendar
 import google.api_core.exceptions
 import google.api_core.retry as retry
 import random
+import time
 
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -305,7 +306,7 @@ if st.button("Confirmar Agendamento"):
             if barbeiros_disponiveis:
                 barbeiro_escolhido = random.choice(barbeiros_disponiveis)
             else:
-                barbeiro_escolhido = "Sem preferência" #Nenhum barbeiro disponível.
+                barbeiro_escolhido = "Sem preferência"  # Nenhum barbeiro disponível.
 
             if barbeiro_escolhido != "Sem preferência":
                 barbeiro = barbeiro_escolhido
@@ -326,6 +327,8 @@ if st.button("Confirmar Agendamento"):
                         proximo_horario = f"{hora + 1}:{minuto:02d}"
                         bloquear_horario(data, proximo_horario, barbeiro)
 
+                    time.sleep(1) # Espera 1 segundo 
+                    
                     # Atualizar status dos barbeiros após o agendamento
                     cores = atualizar_cores(data, horario)
                     st.markdown("### Status dos Barbeiros (Atualizado):")
@@ -335,7 +338,7 @@ if st.button("Confirmar Agendamento"):
                         elif cor == "amarelo":
                             st.markdown(f"🟡 {b}")
                         elif cor == "vermelho":
-                            st.markdown(f"🔴 {b}")
+                            st.markdown(f" {b}")
                         else:
                             st.markdown(f"⚪ {b} (Erro)")
 
@@ -351,10 +354,13 @@ if st.button("Confirmar Agendamento"):
                     enviar_email("Agendamento Confirmado", resumo)
                     st.success("Agendamento confirmado com sucesso!")
                     st.info("Resumo do agendamento:\n" + resumo)
+                    st.cache_data.clear()  # Limpa o cache
+                    st.experimental_rerun()  # Força a atualização da interface
                 else:
                     st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário.")
     else:
         st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
+
 
 # Aba de Cancelamento
 st.subheader("Cancelar Agendamento")
@@ -365,6 +371,7 @@ if st.button("Cancelar Agendamento"):
     with st.spinner("Processando cancelamento..."):
         cancelado = cancelar_agendamento(data, horario_cancelar, telefone_cancelar)
         if cancelado:
+            time.sleep(1) # Espera 1 segundo
             # Atualizar status dos barbeiros após o cancelamento
             cores = atualizar_cores(data, horario_cancelar)
             st.markdown("### Status dos Barbeiros (Atualizado):")
@@ -388,3 +395,6 @@ if st.button("Cancelar Agendamento"):
             Barbeiro: {cancelado['barbeiro']}
             Serviços: {', '.join(cancelado['servicos'])}
             """
+    st.cache_data.clear() # Limpa o cache
+    st.experimental_rerun() # Força a atualização da interface
+   
