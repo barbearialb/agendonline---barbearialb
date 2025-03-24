@@ -85,9 +85,82 @@ def enviar_email(assunto, mensagem):
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
 
+def atualizar_cores(data, horario):
+    try:
+        data_obj = datetime.strptime(data, '%d/%m/%Y').date()
+    except ValueError as e:
+        st.error(f"Erro ao converter a data: {e}")
+        return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
+    try:
+        # Consultando agendamentos para o horário e a data
+        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
+
+        cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
+        barbeiros_disponiveis = ["Lucas Borges", "Aluizio"] # Lista de barbeiros disponíveis
+
+        # Convertendo o resultado da consulta em uma lista
+        horarios_ocupados_lista = list(horarios_ocupados)
+
+        for agendamento in horarios_ocupados_lista:
+            ag = agendamento.to_dict()  # Obtendo o dicionário do documento
+            if ag:  # Verifica se o dicionário não está vazio
+                cores[ag['barbeiro']] = "vermelho"
+                if ag['barbeiro'] in barbeiros_disponiveis:
+                    barbeiros_disponiveis.remove(ag['barbeiro'])
+
+        if len(barbeiros_disponiveis) == 1:
+            cores["Sem preferência"] = "amarelo"
+
+        # Verificando se o horário está entre 12h e 14h nos dias de semana
+        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
+        if dia_semana in range(0, 5) and "12:00" <= horario < "14:00":
+            cores["Lucas Borges"] = "vermelho"
+            cores["Aluizio"] = "vermelho"
+            cores["Sem preferência"] = "vermelho"
+
+        return cores
+
+    except Exception as e:
+        st.error(f"Erro ao acessar os dados do Firestore: {e}")
+        return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
+
+@retry.Retry()
+def verificar_disponibilidade(data, horario):
+    if not db:
+        st.error("Firestore não inicializado.")
+        return False  # Retorna False se o Firestore não estiver inicializado
+
+    try:
+        # Verifica se o horário está dentro do horário de almoço (12h - 14h) em dias de semana
+        data_obj = datetime.strptime(data, '%d/%m/%Y').date()
+        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
+        if dia_semana in range(0, 5) and "12:00" <= horario < "14:00":
+            return False  # Retorna False para bloquear o horário de almoço
+
+        chave_agendamento = f"{data}_{horario}"
+        agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+        doc = agendamento_ref.get()
+        return not doc.exists  # Retorna True se o horário estiver disponível
+
+    except google.api_core.exceptions.RetryError as e:
+        st.error(f"Erro de conexão com o Firestore: {e}")
+        return False  # Retorna False em caso de erro
+    except Exception as e:
+        st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
+        return False  # Retorna False em caso de erro
+    
 # Função para salvar agendamento no Firestore
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
+    if barbeiro == "Sem preferência":
+        cores = atualizar_cores(data, horario)
+        barbeiros_disponiveis = [b for b, cor in cores.items() if cor == "verde" and b != "Sem preferência"]
+        if barbeiros_disponiveis:
+            barbeiro = random.choice(barbeiros_disponiveis)
+        else:
+            st.error("Não há barbeiros disponíveis para este horário.")
+            return
+        
     chave_agendamento = f"{data}_{horario}"
     db.collection('agendamentos').document(chave_agendamento).set({
         'nome': nome,
@@ -97,6 +170,12 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
         'data': data,
         'horario': horario
     })
+
+    # Bloquear o próximo horário apenas se os serviços incluírem "corte" e "barba"
+    if "Barba" in servicos and any(corte in servicos for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
+        hora, minuto = map(int, horario.split(':'))
+        proximo_horario = f"{hora + 1}:{minuto:02d}"
+        bloquear_horario(data, proximo_horario, barbeiro)
 
 
 # Função para cancelar agendamento no Firestore
@@ -109,8 +188,8 @@ def cancelar_agendamento(data, horario, telefone):
             agendamento_cancelado = doc.to_dict()
             agendamento_ref.delete()  # Exclui o agendamento
 
-            # Lógica para remover o bloqueio do próximo horário
-            if len(agendamento_cancelado['servicos']) == 2:  # Caso de serviço duplo
+            # Desbloquear o próximo horário apenas se ele tiver sido bloqueado por um agendamento de "corte + barba"
+            if "Barba" in agendamento_cancelado['servicos'] and any(corte in agendamento_cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                 hora, minuto = map(int, horario.split(':'))
                 proximo_horario = f"{hora + 1}:{minuto:02d}"
                 desbloquear_horario(data, proximo_horario, agendamento_cancelado['barbeiro'])
@@ -124,22 +203,6 @@ def cancelar_agendamento(data, horario, telefone):
 
 
 # Função para verificar disponibilidade do horário no Firebase
-@retry.Retry()
-def verificar_disponibilidade(data, horario):
-    if not db:
-        st.error("Firestore não inicializado.")
-        return False  # Retorna False se o Firestore não estiver inicializado
-    chave_agendamento = f"{data}_{horario}"
-    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
-    try:
-        doc = agendamento_ref.get()
-        return not doc.exists  # Retorna True se o horário estiver disponível
-    except google.api_core.exceptions.RetryError as e:
-        st.error(f"Erro de conexão com o Firestore: {e}")
-        return False  # Retorna False em caso de erro
-    except Exception as e:
-        st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
-        return False  # Retorna False em caso de erro
 
 
 def filtrar_horarios_disponiveis(data, barbeiro):
@@ -162,7 +225,10 @@ def filtrar_horarios_disponiveis(data, barbeiro):
 
 
 # Função para bloquear horário automaticamente no Firestore
+
 def bloquear_horario(data, horario, barbeiro):
+    if horario not in horarios:
+        return  # Caso o próximo horário não exista, sai da função
     chave_bloqueio = f"{data}_{horario}_{barbeiro}"
     db.collection('bloqueios').document(chave_bloqueio).set({
         'data': data,
@@ -170,7 +236,6 @@ def bloquear_horario(data, horario, barbeiro):
         'barbeiro': barbeiro,
         'timestamp': datetime.now()
     })
-
 
 def desbloquear_horario(data, horario, barbeiro):
     chave_bloqueio = f"{data}_{horario}_{barbeiro}"
@@ -180,43 +245,6 @@ def desbloquear_horario(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao desbloquear horário: {e}")
 # Função para filtrar horários disponíveis com base nos bloqueios
-def atualizar_cores(data, horario):
-    try:
-        data_obj = datetime.strptime(data, '%d/%m/%Y').date()
-    except ValueError as e:
-        st.error(f"Erro ao converter a data: {e}")
-        return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
-
-    try:
-        # Consultando agendamentos para o horário e a data
-        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==',
-                                                                                       horario).stream()
-
-        cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
-
-        # Convertendo o resultado da consulta em uma lista
-        horarios_ocupados_lista = list(horarios_ocupados)
-
-        for agendamento in horarios_ocupados_lista:
-            ag = agendamento.to_dict()  # Obtendo o dicionário do documento
-            if ag:  # Verifica se o dicionário não está vazio
-                cores[ag['barbeiro']] = "vermelho"
-
-        if cores["Lucas Borges"] == "vermelho" or cores["Aluizio"] == "vermelho":
-            cores["Sem preferência"] = "amarelo"
-
-        # Verificando se o horário está entre 12h e 14h nos dias de semana
-        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
-        if dia_semana in range(0, 5) and "12:00" <= horario < "14:00":
-            cores["Lucas Borges"] = "vermelho"
-            cores["Aluizio"] = "vermelho"
-            cores["Sem preferência"] = "vermelho"
-
-        return cores
-
-    except Exception as e:
-        st.error(f"Erro ao acessar os dados do Firestore: {e}")
-        return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
 
 
 # Interface Streamlit
