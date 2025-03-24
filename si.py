@@ -91,14 +91,22 @@ def cancelar_agendamento(data, horario, telefone):
     try:
         doc = agendamento_ref.get()
         if doc.exists and doc.to_dict()['telefone'] == telefone:
-            agendamento_ref.delete()
-            return doc.to_dict()  # Retorna os dados do agendamento cancelado
+            agendamento_cancelado = doc.to_dict()
+            agendamento_ref.delete()  # Exclui o agendamento
+
+            # Lógica para remover o bloqueio do próximo horário
+            if len(agendamento_cancelado['servicos']) == 2:  # Caso de serviço duplo
+                hora, minuto = map(int, horario.split(':'))
+                proximo_horario = f"{hora + 1}:{minuto:02d}"
+                desbloquear_horario(data, proximo_horario, agendamento_cancelado['barbeiro'])
+
+            return agendamento_cancelado  # Retorna os dados do agendamento cancelado
         else:
             return None
     except Exception as e:
         st.error(f"Erro ao acessar o Firestore: {e}")
         return None
-
+    
 # Função para verificar disponibilidade do horário no Firebase
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
@@ -121,6 +129,24 @@ def verificar_disponibilidade(data, horario):
         st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
         return False  # Retorna False em caso de erro
     
+def filtrar_horarios_disponiveis(data, barbeiro):
+    if not db:
+        st.error("Firestore não inicializado.")
+        return horarios  # Retorna todos os horários se o Firestore não estiver inicializado
+    
+    try:
+        bloqueios_ref = db.collection('bloqueios').where('data', '==', data)
+        bloqueios = bloqueios_ref.stream()
+        horarios_bloqueados = [doc.to_dict()['horario'] for doc in bloqueios if doc.to_dict().get('barbeiro') == barbeiro]
+
+        # Retornar apenas horários que não estão bloqueados
+        horarios_disponiveis = [h for h in horarios if h not in horarios_bloqueados]
+        return horarios_disponiveis
+    except Exception as e:
+        st.error(f"Erro ao carregar bloqueios: {e}")
+        return horarios  # Retorna todos os horários em caso de erro
+
+
 # Função para bloquear horário automaticamente no Firestore
 def bloquear_horario(data, horario, barbeiro):
     chave_bloqueio = f"{data}_{horario}_{barbeiro}"
@@ -131,47 +157,45 @@ def bloquear_horario(data, horario, barbeiro):
         'timestamp': datetime.now()
     })
 
-# Função para filtrar horários disponíveis com base nos bloqueios
-def filtrar_horarios_disponiveis(data, barbeiro):
+def desbloquear_horario(data, horario, barbeiro):
+    chave_bloqueio = f"{data}_{horario}_{barbeiro}"
+    bloqueio_ref = db.collection('bloqueios').document(chave_bloqueio)
     try:
-        bloqueios_ref = db.collection('bloqueios').where('data', '==', data)
-        bloqueios = bloqueios_ref.stream()
-        horarios_bloqueados = [doc.to_dict()['horario'] for doc in bloqueios if doc.to_dict()['barbeiro'] == barbeiro]
-
-        # Retornar apenas horários que não estão bloqueados
-        horarios_disponiveis = [h for h in horarios if h not in horarios_bloqueados]
-        return horarios_disponiveis
+        bloqueio_ref.delete()
     except Exception as e:
-        st.error(f"Erro ao carregar bloqueios: {e}")
-        return horarios
+        st.error(f"Erro ao desbloquear horário: {e}")
 
+
+# Função para filtrar horários disponíveis com base nos bloqueios
 def atualizar_cores(data, horario, barbeiro):
-    # Converter data de string para datetime.date
     try:
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
     except ValueError as e:
         st.error(f"Erro ao converter a data: {e}")
         return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
-    horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
-    cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
-    
-    for agendamento in horarios_ocupados:
-        ag = agendamento.to_dict()
-        cores[ag['barbeiro']] = "vermelho"
-    
-    if cores["Lucas Borges"] == "vermelho" or cores["Aluizio"] == "vermelho":
-        cores["Sem preferência"] = "amarelo"
+    try:
+        horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
+        cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
-    # Marcar os horários de 12h às 14h de segunda a sexta-feira como vermelhos
-    dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
-    if dia_semana in range(0, 5):  # Segunda a sexta-feira
-        if "12:00" <= horario < "14:00":
+        for agendamento in horarios_ocupados:
+            ag = agendamento.to_dict()  # Verificar se o documento existe antes de processar
+            if ag:  # Confirma se o documento não está vazio
+                cores[ag['barbeiro']] = "vermelho"
+
+        if cores["Lucas Borges"] == "vermelho" or cores["Aluizio"] == "vermelho":
+            cores["Sem preferência"] = "amarelo"
+
+        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
+        if dia_semana in range(0, 5) and "12:00" <= horario < "14:00":
             cores["Lucas Borges"] = "vermelho"
             cores["Aluizio"] = "vermelho"
             cores["Sem preferência"] = "vermelho"
 
-    return cores
+        return cores
+    except Exception as e:
+        st.error(f"Erro ao acessar os dados do Firestore: {e}")
+        return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -254,7 +278,7 @@ if st.button("Cancelar Agendamento"):
             # Atualizar status dos barbeiros após o cancelamento
             cores = atualizar_cores(data, horario_cancelar, cancelado['barbeiro'])
             st.markdown(f"**Status atualizado:** Lucas Borges: {cores['Lucas Borges']}, Aluizio: {cores['Aluizio']}, Sem preferência: {cores['Sem preferência']}")
-
+        
             # Resumo do cancelamento
             resumo_cancelamento = f"""
             Nome: {cancelado['nome']}
