@@ -177,9 +177,15 @@ def atualizar_cores(data, horario, barbeiro):
     try:
         # Consultando agendamentos para o horário e a data
         horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
+        
+        # Verifique se a consulta retornou resultados
+        horarios_ocupados_lista = list(horarios_ocupados)  # Converte o resultado em uma lista
+        if not horarios_ocupados_lista:
+            st.write("Nenhum agendamento encontrado para este horário.")
+        
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
-        for agendamento in horarios_ocupados:
+        for agendamento in horarios_ocupados_lista:
             ag = agendamento.to_dict()  # Verificar se o documento existe antes de processar
             if ag:  # Verifica se o documento foi encontrado e não está vazio
                 cores[ag['barbeiro']] = "vermelho"
@@ -199,6 +205,7 @@ def atualizar_cores(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao acessar os dados do Firestore: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
+
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
