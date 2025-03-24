@@ -146,6 +146,13 @@ def filtrar_horarios_disponiveis(data, barbeiro):
         return horarios
 
 def atualizar_cores(data, horario, barbeiro):
+    # Converter data de string para datetime.date
+    try:
+        data_obj = datetime.strptime(data, '%d/%m/%Y').date()
+    except ValueError as e:
+        st.error(f"Erro ao converter a data: {e}")
+        return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
+
     horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
     cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
     
@@ -157,7 +164,7 @@ def atualizar_cores(data, horario, barbeiro):
         cores["Sem preferência"] = "amarelo"
 
     # Marcar os horários de 12h às 14h de segunda a sexta-feira como vermelhos
-    dia_semana = calendar.weekday(data.year, data.month, data.day)
+    dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
     if dia_semana in range(0, 5):  # Segunda a sexta-feira
         if "12:00" <= horario < "14:00":
             cores["Lucas Borges"] = "vermelho"
