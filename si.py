@@ -175,17 +175,19 @@ def atualizar_cores(data, horario, barbeiro):
         return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
     try:
+        # Consultando agendamentos para o horário e a data
         horarios_ocupados = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario).stream()
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
         for agendamento in horarios_ocupados:
             ag = agendamento.to_dict()  # Verificar se o documento existe antes de processar
-            if ag:  # Confirma se o documento não está vazio
+            if ag:  # Verifica se o documento foi encontrado e não está vazio
                 cores[ag['barbeiro']] = "vermelho"
 
         if cores["Lucas Borges"] == "vermelho" or cores["Aluizio"] == "vermelho":
             cores["Sem preferência"] = "amarelo"
 
+        # Verificando se o horário está entre 12h e 14h nos dias de semana
         dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
         if dia_semana in range(0, 5) and "12:00" <= horario < "14:00":
             cores["Lucas Borges"] = "vermelho"
@@ -193,6 +195,7 @@ def atualizar_cores(data, horario, barbeiro):
             cores["Sem preferência"] = "vermelho"
 
         return cores
+
     except Exception as e:
         st.error(f"Erro ao acessar os dados do Firestore: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
