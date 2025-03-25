@@ -210,12 +210,12 @@ def cancelar_agendamento(data, horario, telefone):
 # Função para verificar disponibilidade do horário no Firebase
 
 
-def filtrar_horarios_disponiveis(data, barbeiro):
-    st.write(f"🔍 Filtrando horários disponíveis para data: {data}, barbeiro: {barbeiro}")
+def filtrar_horarios_disponiveis(data, barbeiros):
+    st.write(f"🔍 Filtrando horários disponíveis para data: {data}, barbeiros: {barbeiros}")
 
     if not db:
         st.error("❌ Firestore não inicializado.")
-        return horarios  # Retorna a lista original de horários se Firestore não estiver disponível
+        return []  # Retorna uma lista vazia se Firestore não estiver disponível
     else:
         st.write("✅ Firestore inicializado com sucesso.")
 
@@ -235,9 +235,9 @@ def filtrar_horarios_disponiveis(data, barbeiro):
             bloqueio_dict = doc.to_dict()
             st.write(f"📌 Documento bloqueio analisado: {bloqueio_dict}")
 
-            # Validar se o bloqueio corresponde à data e barbeiro
+            # Validar se o bloqueio corresponde à data e barbeiros
             if bloqueio_dict.get('data') == data and (
-                barbeiro == 'Sem preferência' or bloqueio_dict.get('barbeiro') == barbeiro):
+                'Sem preferência' in barbeiros or bloqueio_dict.get('barbeiro') in barbeiros):
                 horarios_bloqueados.append(bloqueio_dict.get('horario'))
 
         # Buscar agendamentos no Firestore
@@ -250,9 +250,9 @@ def filtrar_horarios_disponiveis(data, barbeiro):
             agendamento_dict = doc.to_dict()
             st.write(f"📌 Documento agendamento analisado: {agendamento_dict}")
 
-            # Validar se o agendamento corresponde à data e barbeiro
+            # Validar se o agendamento corresponde à data e barbeiros
             if agendamento_dict.get('data') == data and (
-                barbeiro == 'Sem preferência' or agendamento_dict.get('barbeiro') == barbeiro):
+                'Sem preferência' in barbeiros or agendamento_dict.get('barbeiro') in barbeiros):
                 horarios_agendados.append(agendamento_dict.get('horario'))
 
         # Logs de horários bloqueados e agendados
@@ -271,8 +271,7 @@ def filtrar_horarios_disponiveis(data, barbeiro):
 
     except Exception as e:
         st.error(f"❌ Erro ao carregar horários do Firestore: {e}")
-        return horarios
-
+        return []
 
 
 
