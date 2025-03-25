@@ -209,87 +209,57 @@ def cancelar_agendamento(data, horario, telefone):
 
 # Função para verificar disponibilidade do horário no Firebase
 
-from datetime import datetime
 
 def filtrar_horarios_disponiveis(data, barbeiro):
     st.write(f"🔍 Filtrando horários disponíveis para data: {data}, barbeiro: {barbeiro}")
 
-    # Verificar inicialização do Firestore
     if not db:
         st.error("❌ Firestore não inicializado.")
-        return horarios
+        return horarios  # Retorna a lista original de horários se Firestore não estiver disponível
     else:
         st.write("✅ Firestore inicializado com sucesso.")
 
     try:
-        # Testar conexão com Firestore
-        try:
-            teste_ref = db.collection('bloqueios')
-            teste_docs = list(teste_ref.stream())
-            st.write(f"🔍 Teste de conexão com Firestore retornou {len(teste_docs)} documentos.")
-        except Exception as e:
-            st.error(f"❌ Falha ao conectar ao Firestore: {e}")
-            return horarios
+        # Lista de horários padrão
+        horarios = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
+                    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', 
+                    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30']
 
-        # Buscar todos os bloqueios
+        # Buscar bloqueios no Firestore
         bloqueios_ref = db.collection('bloqueios')
         bloqueios = list(bloqueios_ref.stream())
-
         horarios_bloqueados = []
-        st.write("📂 Verificando bloqueios no Firestore...")
 
+        st.write("📂 Verificando bloqueios no Firestore...")
         for doc in bloqueios:
             bloqueio_dict = doc.to_dict()
             st.write(f"📌 Documento bloqueio analisado: {bloqueio_dict}")
 
-            # Validar campos do bloqueio
-            if 'data' not in bloqueio_dict or 'horario' not in bloqueio_dict:
-                st.error("❌ Campo 'data' ou 'horario' ausente no documento bloqueio.")
-                continue
-
-            data_bloqueio = bloqueio_dict.get('data')
-            if isinstance(data_bloqueio, datetime):  
-                data_bloqueio_str = data_bloqueio.strftime('%d/%m/%Y')
-            elif isinstance(data_bloqueio, str):
-                data_bloqueio_str = data_bloqueio
-            else:
-                data_bloqueio_str = None
-
-            if data_bloqueio_str == data:
+            # Validar se o bloqueio corresponde à data e barbeiro
+            if bloqueio_dict.get('data') == data and (
+                barbeiro == 'Sem preferência' or bloqueio_dict.get('barbeiro') == barbeiro):
                 horarios_bloqueados.append(bloqueio_dict.get('horario'))
 
-        # Buscar todos os agendamentos
+        # Buscar agendamentos no Firestore
         agendamentos_ref = db.collection('agendamentos')
         agendamentos = list(agendamentos_ref.stream())
-
         horarios_agendados = []
-        st.write("📂 Verificando agendamentos no Firestore...")
 
+        st.write("📂 Verificando agendamentos no Firestore...")
         for doc in agendamentos:
             agendamento_dict = doc.to_dict()
             st.write(f"📌 Documento agendamento analisado: {agendamento_dict}")
 
-            # Validar campos do agendamento
-            if 'data' not in agendamento_dict or 'horario' not in agendamento_dict:
-                st.error("❌ Campo 'data' ou 'horario' ausente no documento agendamento.")
-                continue
-
-            data_agendamento = agendamento_dict.get('data')
-            if isinstance(data_agendamento, datetime):  
-                data_agendamento_str = data_agendamento.strftime('%d/%m/%Y')
-            elif isinstance(data_agendamento, str):
-                data_agendamento_str = data_agendamento
-            else:
-                data_agendamento_str = None
-
-            if data_agendamento_str == data:
+            # Validar se o agendamento corresponde à data e barbeiro
+            if agendamento_dict.get('data') == data and (
+                barbeiro == 'Sem preferência' or agendamento_dict.get('barbeiro') == barbeiro):
                 horarios_agendados.append(agendamento_dict.get('horario'))
 
         # Logs de horários bloqueados e agendados
         st.write(f"📋 Horários bloqueados: {horarios_bloqueados}")
         st.write(f"📋 Horários agendados: {horarios_agendados}")
 
-        # Unir bloqueios e agendamentos
+        # Combinar horários indisponíveis
         horarios_indisponiveis = set(horarios_bloqueados + horarios_agendados)
         st.write(f"🚫 Horários indisponíveis: {list(horarios_indisponiveis)}")
 
@@ -302,6 +272,7 @@ def filtrar_horarios_disponiveis(data, barbeiro):
     except Exception as e:
         st.error(f"❌ Erro ao carregar horários do Firestore: {e}")
         return horarios
+
 
 
 
