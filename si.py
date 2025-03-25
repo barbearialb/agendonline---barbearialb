@@ -214,27 +214,42 @@ from datetime import datetime
 def filtrar_horarios_disponiveis(data, barbeiro):
     st.write(f"🔍 Filtrando horários disponíveis para data: {data}, barbeiro: {barbeiro}")
 
+    # Verificar inicialização do Firestore
     if not db:
         st.error("❌ Firestore não inicializado.")
         return horarios
+    else:
+        st.write("✅ Firestore inicializado com sucesso.")
 
     try:
+        # Testar conexão com Firestore
+        try:
+            teste_ref = db.collection('bloqueios')
+            teste_docs = list(teste_ref.stream())
+            st.write(f"🔍 Teste de conexão com Firestore retornou {len(teste_docs)} documentos.")
+        except Exception as e:
+            st.error(f"❌ Falha ao conectar ao Firestore: {e}")
+            return horarios
+
         # Buscar todos os bloqueios
         bloqueios_ref = db.collection('bloqueios')
-        bloqueios = list(bloqueios_ref.stream())  
+        bloqueios = list(bloqueios_ref.stream())
 
         horarios_bloqueados = []
-        st.write("📂 Verificando bloqueios no Firestore...")  # Debug
+        st.write("📂 Verificando bloqueios no Firestore...")
 
         for doc in bloqueios:
             bloqueio_dict = doc.to_dict()
-            st.write(f"📌 Documento bloqueio encontrado no Firestore: {bloqueio_dict}")  # Debug
+            st.write(f"📌 Documento bloqueio analisado: {bloqueio_dict}")
 
-            # Verificar como a data está armazenada
+            # Validar campos do bloqueio
+            if 'data' not in bloqueio_dict or 'horario' not in bloqueio_dict:
+                st.error("❌ Campo 'data' ou 'horario' ausente no documento bloqueio.")
+                continue
+
             data_bloqueio = bloqueio_dict.get('data')
-
             if isinstance(data_bloqueio, datetime):  
-                data_bloqueio_str = data_bloqueio.strftime('%d/%m/%Y')  # Converte timestamp para string
+                data_bloqueio_str = data_bloqueio.strftime('%d/%m/%Y')
             elif isinstance(data_bloqueio, str):
                 data_bloqueio_str = data_bloqueio
             else:
@@ -245,20 +260,23 @@ def filtrar_horarios_disponiveis(data, barbeiro):
 
         # Buscar todos os agendamentos
         agendamentos_ref = db.collection('agendamentos')
-        agendamentos = list(agendamentos_ref.stream())  
+        agendamentos = list(agendamentos_ref.stream())
 
         horarios_agendados = []
-        st.write("📂 Verificando agendamentos no Firestore...")  # Debug
+        st.write("📂 Verificando agendamentos no Firestore...")
 
         for doc in agendamentos:
             agendamento_dict = doc.to_dict()
-            st.write(f"📌 Documento agendamento encontrado no Firestore: {agendamento_dict}")  # Debug
+            st.write(f"📌 Documento agendamento analisado: {agendamento_dict}")
 
-            # Verificar como a data está armazenada
+            # Validar campos do agendamento
+            if 'data' not in agendamento_dict or 'horario' not in agendamento_dict:
+                st.error("❌ Campo 'data' ou 'horario' ausente no documento agendamento.")
+                continue
+
             data_agendamento = agendamento_dict.get('data')
-
             if isinstance(data_agendamento, datetime):  
-                data_agendamento_str = data_agendamento.strftime('%d/%m/%Y')  
+                data_agendamento_str = data_agendamento.strftime('%d/%m/%Y')
             elif isinstance(data_agendamento, str):
                 data_agendamento_str = data_agendamento
             else:
@@ -267,6 +285,7 @@ def filtrar_horarios_disponiveis(data, barbeiro):
             if data_agendamento_str == data:
                 horarios_agendados.append(agendamento_dict.get('horario'))
 
+        # Logs de horários bloqueados e agendados
         st.write(f"📋 Horários bloqueados: {horarios_bloqueados}")
         st.write(f"📋 Horários agendados: {horarios_agendados}")
 
@@ -283,6 +302,7 @@ def filtrar_horarios_disponiveis(data, barbeiro):
     except Exception as e:
         st.error(f"❌ Erro ao carregar horários do Firestore: {e}")
         return horarios
+
 
 
 # Função para bloquear horário automaticamente no Firestore
