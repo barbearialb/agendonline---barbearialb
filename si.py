@@ -228,21 +228,29 @@ def cancelar_agendamento(data, horario, telefone):
 def filtrar_horarios_disponiveis(data, barbeiro):
     if not db:
         st.error("Firestore não inicializado.")
-        return horarios  # Retorna todos os horários se o Firestore não estiver inicializado
+        return horarios
 
     try:
+        # Obter horários bloqueados
         bloqueios_ref = db.collection('bloqueios').where('data', '==', data)
         bloqueios = bloqueios_ref.stream()
-        horarios_bloqueados = [doc.to_dict()['horario'] for doc in bloqueios if
-                               doc.to_dict().get('barbeiro') == barbeiro]
+        horarios_bloqueados = [doc.to_dict()['horario'] for doc in bloqueios if doc.to_dict().get('barbeiro') == barbeiro]
 
-        # Retornar apenas horários que não estão bloqueados
-        horarios_disponiveis = [h for h in horarios if h not in horarios_bloqueados]
+        # Obter horários agendados
+        agendamentos_ref = db.collection('agendamentos').where('data', '==', data)
+        agendamentos = agendamentos_ref.stream()
+        horarios_agendados = [doc.to_dict()['horario'] for doc in agendamentos if doc.to_dict().get('barbeiro') == barbeiro]
+
+        # Combinar horários bloqueados e agendados
+        horarios_indisponiveis = list(set(horarios_bloqueados + horarios_agendados))
+
+        # Retornar horários disponíveis
+        horarios_disponiveis = [h for h in horarios if h not in horarios_indisponiveis]
         return horarios_disponiveis
-    except Exception as e:
-        st.error(f"Erro ao carregar bloqueios: {e}")
-        return horarios  # Retorna todos os horários em caso de erro
 
+    except Exception as e:
+        st.error(f"Erro ao carregar horários: {e}")
+        return horarios
 
 # Função para bloquear horário automaticamente no Firestore
 
@@ -282,7 +290,7 @@ horarios_disponiveis = filtrar_horarios_disponiveis(data, barbeiros)
 # Exibir horários disponíveis com bolinhas coloridas
 st.markdown("### Horários Disponíveis:")
 for horario in horarios_disponiveis:
-    cores = atualizar_cores(data, horario)
+    cores = atualizar_cores(data, horario)  # Atualiza as cores para cada horário
     status_str = ""
     for b, cor in cores.items():
         if cor == "verde":
@@ -349,7 +357,7 @@ if st.button("Confirmar Agendamento"):
                         elif cor == "amarelo":
                             st.markdown(f"🟡 {b}")
                         elif cor == "vermelho":
-                            st.markdown(f" {b}")
+                            st.markdown(f"🔴{b}")
                         else:
                             st.markdown(f"⚪ {b} (Erro)")
 
@@ -379,6 +387,20 @@ st.subheader("Cancelar Agendamento")
 telefone_cancelar = st.text_input("Telefone para Cancelamento")
 horario_cancelar = st.selectbox("Horário do Agendamento", horarios)
 
+# Atualizar status dos barbeiros após o cancelamento
+cores_cancelamento = atualizar_cores(data, horario_cancelar)
+st.markdown("### Status dos Barbeiros (Atualizado):")
+for b, cor in cores_cancelamento.items():
+    if cor == "verde":
+            status_str += f"🟢 {b} "
+    elif cor == "amarelo":
+            status_str += f"🟡 {b} "
+    elif cor == "vermelho":
+            status_str += f"🔴 {b} "
+    else:
+            status_str += f"⚪ {b} (Erro) "
+    st.markdown(f"{horario} - {status_str}")
+
 if st.button("Cancelar Agendamento"):
     with st.spinner("Processando cancelamento..."):
         cancelado = cancelar_agendamento(data, horario_cancelar, telefone_cancelar)
@@ -393,7 +415,7 @@ if st.button("Cancelar Agendamento"):
                 elif cor == "amarelo":
                     st.markdown(f"🟡 {b}")
                 elif cor == "vermelho":
-                    st.markdown(f" {b}")
+                    st.markdown(f"🔴 {b}")
                 else:
                     st.markdown(f"⚪ {b} (Erro)")
 
