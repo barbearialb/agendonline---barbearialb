@@ -87,11 +87,11 @@ def enviar_email(assunto, mensagem):
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
 
-cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}  # Inicialização fora da função
+cores_iniciais = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}  # Inicialização fora da função
 
 def atualizar_cores(data, horario):
     """Atualiza as cores dos barbeiros com base na disponibilidade e nos bloqueios."""
-    global cores  # Declara que a função usará a variável global 'cores'
+    cores = cores_iniciais.copy()  # Cria uma cópia das cores iniciais
     try:
         st.write(f"Atualizando cores para data: {data}, horário: {horario}") #Log
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
@@ -137,7 +137,7 @@ def atualizar_cores(data, horario):
         return cores
     except ValueError as e:
         st.error(f"Erro ao converter data ou horário: {e}")
-        return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
+        return cores_iniciais.copy()
     except Exception as e:
         st.error(f"Erro ao acessar Firestore: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
