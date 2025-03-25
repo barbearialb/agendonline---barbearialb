@@ -87,45 +87,50 @@ def enviar_email(assunto, mensagem):
         st.error(f"Erro ao enviar e-mail: {e}")
 
 def atualizar_cores(data, horario):
+    """
+    Atualiza as cores dos barbeiros com base na disponibilidade e no horário de almoço.
+
+    Args:
+        data (str): Data no formato 'dd/mm/aaaa'.
+        horario (str): Horário no formato 'HH:MM'.
+
+    Returns:
+        dict: Dicionário com as cores dos barbeiros.
+    """
     try:
+        # Convertendo a data e o horário
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
+        horario_obj = datetime.strptime(horario, '%H:%M').time()
     except ValueError as e:
-        st.error(f"Erro ao converter a data: {e}")
+        st.error(f"Erro ao converter a data ou horário: {e}")
         return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
     try:
-        # Consultando agendamentos para o horário e a data
-        agendamentos_ref = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario)
-        agendamentos = agendamentos_ref.stream()
-
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
-        barbeiros_disponiveis = ["Lucas Borges", "Aluizio"]
+        barbeiros = ["Lucas Borges", "Aluizio"]
+
+        # Consultando agendamentos para o horário e data especificados
+        agendamentos_ref = db.collection('agendamentos') \
+            .where('data', '==', data) \
+            .where('horario', '==', horario)
+        agendamentos = agendamentos_ref.stream()
 
         # Convertendo o resultado da consulta em uma lista
         agendamentos_lista = list(agendamentos)
 
-        st.write(f"Agendamentos para {data} {horario}: {agendamentos_lista}")  # Log dos agendamentos encontrados
-
-        for agendamento in agendamentos_lista:
-            agendamento_dict = agendamento.to_dict()
-            if agendamento_dict:
-                barbeiro = agendamento_dict.get('barbeiro')
-                if barbeiro:
-                    cores[barbeiro] = "vermelho"
-                    if barbeiro in barbeiros_disponiveis:
-                        barbeiros_disponiveis.remove(barbeiro)
-
-        if len(barbeiros_disponiveis) == 1:
-            cores["Sem preferência"] = "amarelo"
+        # Verificando a disponibilidade de cada barbeiro
+        for barbeiro in barbeiros:
+            if any(agendamento.to_dict().get('barbeiro') == barbeiro for agendamento in agendamentos_lista):
+                cores[barbeiro] = "vermelho"
 
         # Verificando se o horário está entre 12h e 14h nos dias de semana
-        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
-        if dia_semana in range(0, 5) and "12:00" <= horario < "14:00":
-            cores["Lucas Borges"] = "vermelho"
-            cores["Aluizio"] = "vermelho"
-            cores["Sem preferência"] = "vermelho"
+        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)  # 0 = segunda, ..., 6 = domingo
+        if dia_semana in range(0, 5) and time(12, 0) <= horario_obj < time(14, 0):
+            cores = {"Lucas Borges": "vermelho", "Aluizio": "vermelho", "Sem preferência": "vermelho"}
 
-        st.write(f"Cores finais: {cores}")  # Log das cores finais
+        # Definindo "Sem preferência" como amarelo se apenas um barbeiro estiver disponível
+        if cores["Lucas Borges"] == "verde" or cores["Aluizio"] == "verde":
+            cores["Sem preferência"] = "amarelo"
 
         return cores
 
@@ -254,8 +259,6 @@ def desbloquear_horario(data, horario, barbeiro):
         bloqueio_ref.delete()
     except Exception as e:
         st.error(f"Erro ao desbloquear horário: {e}")
-# Função para filtrar horários disponíveis com base nos bloqueios
-
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -328,7 +331,7 @@ if st.button("Confirmar Agendamento"):
                         bloquear_horario(data, proximo_horario, barbeiro)
 
                     time.sleep(1) # Espera 1 segundo 
-                    
+
                     # Atualizar status dos barbeiros após o agendamento
                     cores = atualizar_cores(data, horario)
                     st.markdown("### Status dos Barbeiros (Atualizado):")
@@ -338,7 +341,7 @@ if st.button("Confirmar Agendamento"):
                         elif cor == "amarelo":
                             st.markdown(f"🟡 {b}")
                         elif cor == "vermelho":
-                            st.markdown(f" {b}")
+                            st.markdown(f"🔴 {b}")
                         else:
                             st.markdown(f"⚪ {b} (Erro)")
 
