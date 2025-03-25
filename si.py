@@ -88,6 +88,8 @@ def enviar_email(assunto, mensagem):
         st.error(f"Erro ao enviar e-mail: {e}")
 
 cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
+cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}  # Inicialização fora da função
+
 def atualizar_cores(data, horario):
     """Atualiza as cores dos barbeiros com base na disponibilidade e nos bloqueios."""
     global cores  # Declara que a função usará a variável global 'cores'
@@ -107,8 +109,8 @@ def atualizar_cores(data, horario):
         for barbeiro in barbeiros:
             if any(agendamento.to_dict().get('barbeiro') == barbeiro for agendamento in agendamentos_lista) or any(bloqueio.to_dict().get('barbeiro') == barbeiro for bloqueio in bloqueios_lista):
                 cores[barbeiro] = "vermelho"
-        # Verificando horário de almoço
-        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
+        # Verificando horário de almoço (corrigido)
+        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)  # 0 = segunda, ..., 6 = domingo
         horario_minutos = horario_obj.hour * 60 + horario_obj.minute
         if dia_semana in range(0, 5) and 12 * 60 <= horario_minutos < 14 * 60:
             cores = {"Lucas Borges": "vermelho", "Aluizio": "vermelho", "Sem preferência": "vermelho"}
@@ -297,7 +299,7 @@ for servico, preco in servicos_com_preco.items():
     st.write(f"{servico}: {preco}")
 
 # Validação dos serviços selecionados
-if st.button("Confirmar Agendamento"):
+if st.button("Confirmar Agendamento"):  # <--- Mudança aqui
     if nome and telefone and servicos_selecionados:
         if "Sem preferência" in barbeiros:
             # Escolher barbeiro aleatoriamente
