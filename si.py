@@ -86,10 +86,11 @@ def enviar_email(assunto, mensagem):
             server.sendmail(EMAIL, EMAIL, msg.as_string())
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
-        
+
 cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 def atualizar_cores(data, horario):
     """Atualiza as cores dos barbeiros com base na disponibilidade e nos bloqueios."""
+    global cores  # Declara que a função usará a variável global 'cores'
     try:
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
         horario_obj = datetime.strptime(horario, '%H:%M').time()
