@@ -113,7 +113,9 @@ def atualizar_cores(data, horario):
         dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)  # 0 = segunda, ..., 6 = domingo
         horario_minutos = horario_obj.hour * 60 + horario_obj.minute
         if dia_semana in range(0, 5) and 12 * 60 <= horario_minutos < 14 * 60:
-            cores = {"Lucas Borges": "vermelho", "Aluizio": "vermelho", "Sem preferência": "vermelho"}
+            for barbeiro in barbeiros: # Mudança aqui
+                cores[barbeiro] = "vermelho"
+            cores["Sem preferência"] = "vermelho" # Mudança aqui
         # Definindo "Sem preferência"
         if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
             cores["Sem preferência"] = "verde"
@@ -128,7 +130,7 @@ def atualizar_cores(data, horario):
     except Exception as e:
         st.error(f"Erro ao acessar Firestore: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
-
+    
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
     if not db:
