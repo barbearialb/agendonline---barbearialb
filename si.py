@@ -209,37 +209,39 @@ def cancelar_agendamento(data, horario, telefone):
 
 # Função para verificar disponibilidade do horário no Firebase
 
-
 def filtrar_horarios_disponiveis(data, barbeiro):
-    st.write(f"Filtrando horários disponíveis para data: {data}, barbeiro: {barbeiro}") #Log
+    st.write(f"Filtrando horários disponíveis para data: {data}, barbeiro: {barbeiro}")  # Log
+
     if not db:
         st.error("Firestore não inicializado.")
         return horarios
 
     try:
-        # Obter horários bloqueados
+        # Buscar horários bloqueados
         bloqueios_ref = db.collection('bloqueios').where('data', '==', data)
-        bloqueios = bloqueios_ref.stream()
-        horarios_bloqueados = [doc.to_dict()['horario'] for doc in bloqueios if doc.to_dict().get('barbeiro') == barbeiro]
-        st.write(f"Horários bloqueados: {horarios_bloqueados}") #Log
+        bloqueios = list(bloqueios_ref.stream())  
+        horarios_bloqueados = [doc.to_dict().get('horario') for doc in bloqueios]
 
-        # Obter horários agendados
+        # Buscar horários agendados
         agendamentos_ref = db.collection('agendamentos').where('data', '==', data)
-        agendamentos = agendamentos_ref.stream()
-        horarios_agendados = [doc.to_dict()['horario'] for doc in agendamentos if doc.to_dict().get('barbeiro') == barbeiro]
-        st.write(f"Horários agendados: {horarios_agendados}") #Log
+        agendamentos = list(agendamentos_ref.stream())  
+        horarios_agendados = [doc.to_dict().get('horario') for doc in agendamentos]
 
-        # Combinar horários bloqueados e agendados
-        horarios_indisponiveis = list(set(horarios_bloqueados + horarios_agendados))
-        st.write(f"Horários indisponíveis: {horarios_indisponiveis}") #Log
+        st.write(f"Horários bloqueados: {horarios_bloqueados}")  # Log
+        st.write(f"Horários agendados: {horarios_agendados}")  # Log
 
-        # Retornar horários disponíveis
+        # Unir bloqueios e agendamentos
+        horarios_indisponiveis = set(horarios_bloqueados + horarios_agendados)
+        st.write(f"Horários indisponíveis: {list(horarios_indisponiveis)}")  # Log
+
+        # Filtrar horários disponíveis
         horarios_disponiveis = [h for h in horarios if h not in horarios_indisponiveis]
-        st.write(f"Horários disponíveis: {horarios_disponiveis}") #Log
+        st.write(f"Horários disponíveis: {horarios_disponiveis}")  # Log
+
         return horarios_disponiveis
 
     except Exception as e:
-        st.error(f"Erro ao carregar horários: {e}")
+        st.error(f"Erro ao carregar horários do Firestore: {e}")
         return horarios
 
 # Função para bloquear horário automaticamente no Firestore
