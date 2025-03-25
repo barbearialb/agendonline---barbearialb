@@ -290,25 +290,14 @@ horarios_disponiveis = filtrar_horarios_disponiveis(data, barbeiros)
 # Exibir horários disponíveis com bolinhas coloridas
 st.markdown("### Horários Disponíveis:")
 for horario in horarios_disponiveis:
-    cores = atualizar_cores(data, horario)  # Atualiza as cores para cada horário
-    status_str = ""
-    for b, cor in cores.items():
-        if cor == "verde":
-            status_str += f"🟢 {b} "
-        elif cor == "amarelo":
-            status_str += f"🟡 {b} "
-        elif cor == "vermelho":
-            status_str += f"🔴 {b} "
-        else:
-            status_str += f"⚪ {b} (Erro) "
-    st.markdown(f"{horario} - {status_str}")
+    st.markdown(f"{horario}")
 
 horario = st.selectbox("Selecione o Horário", horarios_disponiveis)
 
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
 
 # Exibir os preços com o símbolo R$
-servicos_com_preco = {servico: f"R$ {preco}" for servico, preco in servicos.items()}
+servicos_com_preco = {servico: f"R$- {preco}" for servico, preco in servicos.items()}
 st.write("Preços dos serviços:")
 for servico, preco in servicos_com_preco.items():
     st.write(f"{servico}: {preco}")
@@ -357,7 +346,7 @@ if st.button("Confirmar Agendamento"):
                         elif cor == "amarelo":
                             st.markdown(f"🟡 {b}")
                         elif cor == "vermelho":
-                            st.markdown(f"🔴{b}")
+                            st.markdown(f"🔴 {b}")
                         else:
                             st.markdown(f"⚪ {b} (Erro)")
 
@@ -381,31 +370,16 @@ if st.button("Confirmar Agendamento"):
     else:
         st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
 
-
 # Aba de Cancelamento
 st.subheader("Cancelar Agendamento")
 telefone_cancelar = st.text_input("Telefone para Cancelamento")
 horario_cancelar = st.selectbox("Horário do Agendamento", horarios)
 
-# Atualizar status dos barbeiros após o cancelamento
-cores_cancelamento = atualizar_cores(data, horario_cancelar)
-st.markdown("### Status dos Barbeiros (Atualizado):")
-for b, cor in cores_cancelamento.items():
-    if cor == "verde":
-            status_str += f"🟢 {b} "
-    elif cor == "amarelo":
-            status_str += f"🟡 {b} "
-    elif cor == "vermelho":
-            status_str += f"🔴 {b} "
-    else:
-            status_str += f"⚪ {b} (Erro) "
-    st.markdown(f"{horario} - {status_str}")
-
 if st.button("Cancelar Agendamento"):
     with st.spinner("Processando cancelamento..."):
         cancelado = cancelar_agendamento(data, horario_cancelar, telefone_cancelar)
         if cancelado:
-            time.sleep(1) # Espera 1 segundo
+            time.sleep(1)  # Espera 1 segundo
             # Atualizar status dos barbeiros após o cancelamento
             cores = atualizar_cores(data, horario_cancelar)
             st.markdown("### Status dos Barbeiros (Atualizado):")
@@ -415,7 +389,7 @@ if st.button("Cancelar Agendamento"):
                 elif cor == "amarelo":
                     st.markdown(f"🟡 {b}")
                 elif cor == "vermelho":
-                    st.markdown(f"🔴 {b}")
+                    st.markdown(f"🔴{b}")
                 else:
                     st.markdown(f"⚪ {b} (Erro)")
 
@@ -429,8 +403,7 @@ if st.button("Cancelar Agendamento"):
             Serviços: {', '.join(cancelado['servicos'])}
             """
             st.info("Cancelamento realizado com sucesso!\n" + resumo_cancelamento)
-            st.rerun() # Força a atualização da interface
+            st.rerun()  # Força a atualização da interface
         else:
             st.error("Agendamento não encontrado ou telefone incorreto.")
-    st.cache_data.clear() # Limpa o cache
-   
+    st.cache_data.clear()  # Limpa o cache
