@@ -87,42 +87,53 @@ def enviar_email(assunto, mensagem):
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
 
-cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}  # Inicialização fora da função
 
 def atualizar_cores(data, horario):
     """Atualiza as cores dos barbeiros com base na disponibilidade e nos bloqueios."""
     global cores  # Declara que a função usará a variável global 'cores'
     try:
+        st.write(f"Atualizando cores para data: {data}, horário: {horario}") #Log
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
         horario_obj = datetime.strptime(horario, '%H:%M').time()
         barbeiros = ["Lucas Borges", "Aluizio"]
+        st.write(f"Data obj: {data_obj}, Horário obj: {horario_obj}") #Log
         # Consultando agendamentos
         agendamentos_ref = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario)
         agendamentos = agendamentos_ref.stream()
         agendamentos_lista = list(agendamentos)
+        st.write(f"Agendamentos: {agendamentos_lista}") #Log
         # Consultando bloqueios
         bloqueios_ref = db.collection('bloqueios').where('data', '==', data).where('horario', '==', horario)
         bloqueios = bloqueios_ref.stream()
         bloqueios_lista = list(bloqueios)
+        st.write(f"Bloqueios: {bloqueios_lista}") #Log
         # Verificando disponibilidade
         for barbeiro in barbeiros:
             if any(agendamento.to_dict().get('barbeiro') == barbeiro for agendamento in agendamentos_lista) or any(bloqueio.to_dict().get('barbeiro') == barbeiro for bloqueio in bloqueios_lista):
                 cores[barbeiro] = "vermelho"
+                st.write(f"Barbeiro {barbeiro} definido como vermelho devido a agendamento ou bloqueio.") #Log
         # Verificando horário de almoço (corrigido)
         dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)  # 0 = segunda, ..., 6 = domingo
         horario_minutos = horario_obj.hour * 60 + horario_obj.minute
+        st.write(f"Dia da semana: {dia_semana}, Horário em minutos: {horario_minutos}") #Log
         if dia_semana in range(0, 5) and 12 * 60 <= horario_minutos < 14 * 60:
             for barbeiro in barbeiros: # Mudança aqui
                 cores[barbeiro] = "vermelho"
+                st.write(f"Barbeiro {barbeiro} definido como vermelho devido ao horário de almoço.") #Log
             cores["Sem preferência"] = "vermelho" # Mudança aqui
+            st.write(f"Sem preferência definido como vermelho devido ao horário de almoço.") #Log
         # Definindo "Sem preferência"
         if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
             cores["Sem preferência"] = "verde"
+            st.write(f"Sem preferência definido como verde.") #Log
         elif cores["Lucas Borges"] == "vermelho" and cores["Aluizio"] == "vermelho":
             cores["Sem preferência"] = "vermelho"
+            st.write(f"Sem preferência definido como vermelho.") #Log
         else:
             cores["Sem preferência"] = "amarelo"
+            st.write(f"Sem preferência definido como amarelo.") #Log
+        st.write(f"Cores finais: {cores}") #Log
         return cores
     except ValueError as e:
         st.error(f"Erro ao converter data ou horário: {e}")
