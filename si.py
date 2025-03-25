@@ -101,11 +101,7 @@ def atualizar_cores(data, horario):
         # Convertendo a data e o horário
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
         horario_obj = datetime.strptime(horario, '%H:%M').time()
-    except ValueError as e:
-        st.error(f"Erro ao converter a data ou horário: {e}")
-        return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 
-    try:
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
         barbeiros = ["Lucas Borges", "Aluizio"]
 
@@ -130,14 +126,22 @@ def atualizar_cores(data, horario):
             cores = {"Lucas Borges": "vermelho", "Aluizio": "vermelho", "Sem preferência": "vermelho"}
 
         # Definindo "Sem preferência" como amarelo se apenas um barbeiro estiver disponível
-        if cores["Lucas Borges"] == "verde" or cores["Aluizio"] == "verde":
-            cores["Sem preferência"] = "amarelo"
+        if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
+            cores["Sem preferência"] = "verde" # Ambos disponiveis, sem preferencia verde
+        elif cores["Lucas Borges"] == "vermelho" and cores["Aluizio"] == "vermelho":
+            cores["Sem preferência"] = "vermelho" # Nenhum disponivel, sem preferencia vermelho
+        else:
+            cores["Sem preferência"] = "amarelo" # Apenas um disponivel, sem preferencia amarelo
 
         return cores
 
+    except ValueError as e:
+        st.error(f"Erro ao converter a data ou horário: {e}")
+        return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
     except Exception as e:
         st.error(f"Erro ao acessar os dados do Firestore: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
+
 
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
@@ -359,7 +363,7 @@ if st.button("Confirmar Agendamento"):
                     st.success("Agendamento confirmado com sucesso!")
                     st.info("Resumo do agendamento:\n" + resumo)
                     st.cache_data.clear()  # Limpa o cache
-                    st.experimental_rerun()  # Força a atualização da interface
+                    st.rerun()  # Força a atualização da interface
                 else:
                     st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário.")
     else:
@@ -400,5 +404,5 @@ if st.button("Cancelar Agendamento"):
             Serviços: {', '.join(cancelado['servicos'])}
             """
     st.cache_data.clear() # Limpa o cache
-    st.experimental_rerun() # Força a atualização da interface
+    st.rerun() # Força a atualização da interface
    
