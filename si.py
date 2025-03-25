@@ -10,10 +10,7 @@ import google.api_core.exceptions
 import google.api_core.retry as retry
 import random
 import time
-import logging
 
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
 
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -89,74 +86,44 @@ def enviar_email(assunto, mensagem):
             server.sendmail(EMAIL, EMAIL, msg.as_string())
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
-
+        
+cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
 def atualizar_cores(data, horario):
-    """
-    Atualiza as cores dos barbeiros com base na disponibilidade e no horário de almoço.
-
-    Args:
-        data (str): Data no formato 'dd/mm/aaaa'.
-        horario (str): Horário no formato 'HH:MM'.
-
-    Returns:
-        dict: Dicionário com as cores dos barbeiros.
-    """
+    """Atualiza as cores dos barbeiros com base na disponibilidade e nos bloqueios."""
     try:
-        # Convertendo a data e o horário
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
         horario_obj = datetime.strptime(horario, '%H:%M').time()
-
-        logging.info(f"Atualizando cores para data: {data}, horário: {horario}")
-
-        cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
         barbeiros = ["Lucas Borges", "Aluizio"]
-
-        # Consultando agendamentos para o horário e data especificados
-        agendamentos_ref = db.collection('agendamentos') \
-            .where('data', '==', data) \
-            .where('horario', '==', horario)
+        # Consultando agendamentos
+        agendamentos_ref = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario)
         agendamentos = agendamentos_ref.stream()
-
-        # Convertendo o resultado da consulta em uma lista
         agendamentos_lista = list(agendamentos)
-
-        logging.info(f"Agendamentos encontrados: {agendamentos_lista}")
-
-        # Verificando a disponibilidade de cada barbeiro
+        # Consultando bloqueios
+        bloqueios_ref = db.collection('bloqueios').where('data', '==', data).where('horario', '==', horario)
+        bloqueios = bloqueios_ref.stream()
+        bloqueios_lista = list(bloqueios)
+        # Verificando disponibilidade
         for barbeiro in barbeiros:
-            if any(agendamento.to_dict().get('barbeiro') == barbeiro for agendamento in agendamentos_lista):
+            if any(agendamento.to_dict().get('barbeiro') == barbeiro for agendamento in agendamentos_lista) or any(bloqueio.to_dict().get('barbeiro') == barbeiro for bloqueio in bloqueios_lista):
                 cores[barbeiro] = "vermelho"
-                logging.info(f"Barbeiro {barbeiro} indisponível.")
-
-        # Verificando se o horário está entre 12h e 14h nos dias de semana
-        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)  # 0 = segunda, ..., 6 = domingo
+        # Verificando horário de almoço
+        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
         horario_minutos = horario_obj.hour * 60 + horario_obj.minute
         if dia_semana in range(0, 5) and 12 * 60 <= horario_minutos < 14 * 60:
             cores = {"Lucas Borges": "vermelho", "Aluizio": "vermelho", "Sem preferência": "vermelho"}
-            logging.info("Horário de almoço, todos os barbeiros indisponíveis.")
-
-        # Definindo "Sem preferência" como amarelo se apenas um barbeiro estiver disponível
+        # Definindo "Sem preferência"
         if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
-            cores["Sem preferência"] = "verde"  # Ambos disponiveis, sem preferencia verde
-            logging.info("Ambos os barbeiros disponíveis, 'Sem preferência' verde.")
+            cores["Sem preferência"] = "verde"
         elif cores["Lucas Borges"] == "vermelho" and cores["Aluizio"] == "vermelho":
-            cores["Sem preferência"] = "vermelho"  # Nenhum disponivel, sem preferencia vermelho
-            logging.info("Nenhum barbeiro disponível, 'Sem preferência' vermelho.")
+            cores["Sem preferência"] = "vermelho"
         else:
-            cores["Sem preferência"] = "amarelo"  # Apenas um disponivel, sem preferencia amarelo
-            logging.info("Apenas um barbeiro disponível, 'Sem preferência' amarelo.")
-
-        logging.info(f"Cores finais: {cores}")
-
+            cores["Sem preferência"] = "amarelo"
         return cores
-
     except ValueError as e:
-        st.error(f"Erro ao converter a data ou horário: {e}")
-        logging.error(f"Erro ao converter a data ou horário: {e}")
+        st.error(f"Erro ao converter data ou horário: {e}")
         return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
     except Exception as e:
-        st.error(f"Erro ao acessar os dados do Firestore: {e}")
-        logging.error(f"Erro ao acessar os dados do Firestore: {e}")
+        st.error(f"Erro ao acessar Firestore: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
 
 @retry.Retry()
