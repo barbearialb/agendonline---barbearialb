@@ -314,7 +314,8 @@ if st.button("Confirmar Agendamento"):
             if barbeiros_disponiveis:
                 barbeiro_escolhido = random.choice(barbeiros_disponiveis)
             else:
-                barbeiro_escolhido = "Sem preferência"  # Nenhum barbeiro disponível.
+                st.error("Não há barbeiros disponíveis para este horário. Por favor, escolha outro horário ou barbeiro.")
+                st.stop()  # Interrompe a execução do script
 
             if barbeiro_escolhido != "Sem preferência":
                 barbeiro = barbeiro_escolhido
@@ -324,7 +325,7 @@ if st.button("Confirmar Agendamento"):
         elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
             st.error("Se você escolher dois serviços, o segundo deve ser a barba.")
         else:
-            with st.spinner("Verificando disponibilidade..."):
+            with st.spinner("Verificando disponibilidade e confirmando agendamento..."):
                 if verificar_disponibilidade(data, horario):
                     # Salvar agendamento principal
                     salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro)
@@ -335,10 +336,12 @@ if st.button("Confirmar Agendamento"):
                         proximo_horario = f"{hora + 1}:{minuto:02d}"
                         bloquear_horario(data, proximo_horario, barbeiro)
 
-                    time.sleep(1) # Espera 1 segundo 
+                    time.sleep(1)  # Espera 1 segundo
 
                     # Atualizar status dos barbeiros após o agendamento
                     cores = atualizar_cores(data, horario)
+
+                    # Exibir status dos barbeiros
                     st.markdown("### Status dos Barbeiros (Atualizado):")
                     for b, cor in cores.items():
                         if cor == "verde":
@@ -346,7 +349,7 @@ if st.button("Confirmar Agendamento"):
                         elif cor == "amarelo":
                             st.markdown(f"🟡 {b}")
                         elif cor == "vermelho":
-                            st.markdown(f"🔴 {b}")
+                            st.markdown(f" {b}")
                         else:
                             st.markdown(f"⚪ {b} (Erro)")
 
@@ -360,10 +363,11 @@ if st.button("Confirmar Agendamento"):
                     Serviços: {', '.join(servicos_selecionados)}
                     """
                     enviar_email("Agendamento Confirmado", resumo)
-                    st.success("Agendamento confirmado com sucesso!")
+                    st.success("Agendamento confirmado com sucesso! Um e-mail de confirmação foi enviado.")
                     st.info("Resumo do agendamento:\n" + resumo)
+
                     st.cache_data.clear()  # Limpa o cache
-                    st.rerun()  # Força a atualização da interface
+                    st.rerun()
                 else:
                     st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário.")
     else:
@@ -389,12 +393,11 @@ if st.button("Cancelar Agendamento"):
                 elif cor == "amarelo":
                     st.markdown(f"🟡 {b}")
                 elif cor == "vermelho":
-                    st.markdown(f"🔴 {b}")
+                    st.markdown(f" {b}")
                 else:
                     st.markdown(f"⚪ {b} (Erro)")
 
             # Resumo do cancelamento
-           # Resumo do cancelamento
             resumo_cancelamento = f"""
             Nome: {cancelado['nome']}
             Telefone: {cancelado['telefone']}
@@ -403,6 +406,9 @@ if st.button("Cancelar Agendamento"):
             Barbeiro: {cancelado['barbeiro']}
             Serviços: {', '.join(cancelado['servicos'])}
             """
+            st.info("Cancelamento realizado com sucesso!\n" + resumo_cancelamento)
+            st.rerun() # Força a atualização da interface
+        else:
+            st.error("Agendamento não encontrado ou telefone incorreto.")
     st.cache_data.clear() # Limpa o cache
-    st.rerun() # Força a atualização da interface
    
