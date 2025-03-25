@@ -225,6 +225,7 @@ def cancelar_agendamento(data, horario, telefone):
 
 
 def filtrar_horarios_disponiveis(data, barbeiro):
+    st.write(f"Filtrando horários disponíveis para data: {data}, barbeiro: {barbeiro}") #Log
     if not db:
         st.error("Firestore não inicializado.")
         return horarios
@@ -234,17 +235,21 @@ def filtrar_horarios_disponiveis(data, barbeiro):
         bloqueios_ref = db.collection('bloqueios').where('data', '==', data)
         bloqueios = bloqueios_ref.stream()
         horarios_bloqueados = [doc.to_dict()['horario'] for doc in bloqueios if doc.to_dict().get('barbeiro') == barbeiro]
+        st.write(f"Horários bloqueados: {horarios_bloqueados}") #Log
 
         # Obter horários agendados
         agendamentos_ref = db.collection('agendamentos').where('data', '==', data)
         agendamentos = agendamentos_ref.stream()
         horarios_agendados = [doc.to_dict()['horario'] for doc in agendamentos if doc.to_dict().get('barbeiro') == barbeiro]
+        st.write(f"Horários agendados: {horarios_agendados}") #Log
 
         # Combinar horários bloqueados e agendados
         horarios_indisponiveis = list(set(horarios_bloqueados + horarios_agendados))
+        st.write(f"Horários indisponíveis: {horarios_indisponiveis}") #Log
 
         # Retornar horários disponíveis
         horarios_disponiveis = [h for h in horarios if h not in horarios_indisponiveis]
+        st.write(f"Horários disponíveis: {horarios_disponiveis}") #Log
         return horarios_disponiveis
 
     except Exception as e:
