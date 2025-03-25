@@ -10,6 +10,10 @@ import google.api_core.exceptions
 import google.api_core.retry as retry
 import random
 import time
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
 
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -102,6 +106,8 @@ def atualizar_cores(data, horario):
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
         horario_obj = datetime.strptime(horario, '%H:%M').time()
 
+        logging.info(f"Atualizando cores para data: {data}, horário: {horario}")
+
         cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
         barbeiros = ["Lucas Borges", "Aluizio"]
 
@@ -114,34 +120,44 @@ def atualizar_cores(data, horario):
         # Convertendo o resultado da consulta em uma lista
         agendamentos_lista = list(agendamentos)
 
+        logging.info(f"Agendamentos encontrados: {agendamentos_lista}")
+
         # Verificando a disponibilidade de cada barbeiro
         for barbeiro in barbeiros:
             if any(agendamento.to_dict().get('barbeiro') == barbeiro for agendamento in agendamentos_lista):
                 cores[barbeiro] = "vermelho"
+                logging.info(f"Barbeiro {barbeiro} indisponível.")
 
         # Verificando se o horário está entre 12h e 14h nos dias de semana
         dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)  # 0 = segunda, ..., 6 = domingo
         horario_minutos = horario_obj.hour * 60 + horario_obj.minute
         if dia_semana in range(0, 5) and 12 * 60 <= horario_minutos < 14 * 60:
             cores = {"Lucas Borges": "vermelho", "Aluizio": "vermelho", "Sem preferência": "vermelho"}
+            logging.info("Horário de almoço, todos os barbeiros indisponíveis.")
 
         # Definindo "Sem preferência" como amarelo se apenas um barbeiro estiver disponível
         if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
-            cores["Sem preferência"] = "verde" # Ambos disponiveis, sem preferencia verde
+            cores["Sem preferência"] = "verde"  # Ambos disponiveis, sem preferencia verde
+            logging.info("Ambos os barbeiros disponíveis, 'Sem preferência' verde.")
         elif cores["Lucas Borges"] == "vermelho" and cores["Aluizio"] == "vermelho":
-            cores["Sem preferência"] = "vermelho" # Nenhum disponivel, sem preferencia vermelho
+            cores["Sem preferência"] = "vermelho"  # Nenhum disponivel, sem preferencia vermelho
+            logging.info("Nenhum barbeiro disponível, 'Sem preferência' vermelho.")
         else:
-            cores["Sem preferência"] = "amarelo" # Apenas um disponivel, sem preferencia amarelo
+            cores["Sem preferência"] = "amarelo"  # Apenas um disponivel, sem preferencia amarelo
+            logging.info("Apenas um barbeiro disponível, 'Sem preferência' amarelo.")
+
+        logging.info(f"Cores finais: {cores}")
 
         return cores
 
     except ValueError as e:
         st.error(f"Erro ao converter a data ou horário: {e}")
+        logging.error(f"Erro ao converter a data ou horário: {e}")
         return {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
     except Exception as e:
         st.error(f"Erro ao acessar os dados do Firestore: {e}")
+        logging.error(f"Erro ao acessar os dados do Firestore: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
-
 
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
@@ -273,7 +289,6 @@ def desbloquear_horario(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao desbloquear horário: {e}")
 
-# Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
 st.image("https://github.com/barbearialb/agendonline---barbearialb/blob/main/icone.png?raw=true",
@@ -287,11 +302,7 @@ data = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
 barbeiro_escolhido = st.selectbox(" Escolha o barbeiro:", barbeiros)
 horarios_disponiveis = filtrar_horarios_disponiveis(data, barbeiros)
 
-# Exibir horários disponíveis com bolinhas coloridas
-st.markdown("### Horários Disponíveis:")
-for horario in horarios_disponiveis:
-    st.markdown(f"{horario}")
-
+# Exibir horários disponíveis com bolinhas coloridas (corrigido)
 st.markdown("### Horários Disponíveis:")
 for horario in horarios_disponiveis:
     cores = atualizar_cores(data, horario)  # Atualiza as cores para cada horário
