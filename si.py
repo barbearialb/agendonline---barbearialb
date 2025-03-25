@@ -292,6 +292,21 @@ st.markdown("### Horários Disponíveis:")
 for horario in horarios_disponiveis:
     st.markdown(f"{horario}")
 
+st.markdown("### Horários Disponíveis:")
+for horario in horarios_disponiveis:
+    cores = atualizar_cores(data, horario)  # Atualiza as cores para cada horário
+    status_str = ""
+    for b, cor in cores.items():
+        if cor == "verde":
+            status_str += f"🟢 {b} "
+        elif cor == "amarelo":
+            status_str += f"🟡 {b} "
+        elif cor == "vermelho":
+            status_str += f"🔴 {b} "
+        else:
+            status_str += f"⚪ {b} (Erro) "
+    st.markdown(f"{horario} - {status_str}")
+
 horario = st.selectbox("Selecione o Horário", horarios_disponiveis)
 
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
