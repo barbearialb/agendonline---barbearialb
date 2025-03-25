@@ -234,14 +234,13 @@ def filtrar_horarios_disponiveis(data, barbeiros):
             bloqueio_dict = doc.to_dict()
             st.write(f"📌 Documento bloqueio analisado: {bloqueio_dict}")
 
-            # Corrigindo a conversão da data de timestamp para string
-            if isinstance(bloqueio_dict.get('data'), datetime):
-                data_bloqueio = bloqueio_dict.get('data').strftime('%d/%m/%Y')
-            else:
-                data_bloqueio = bloqueio_dict.get('data')
+            # A data do bloqueio no Firestore é salva como string, então podemos comparar diretamente
+            data_bloqueio = bloqueio_dict.get('data')  # Presumimos que a data já é uma string como '25/03/2025'
+            horario_bloqueio = bloqueio_dict.get('horario')  # Horário específico do bloqueio
 
+            # Verifica se o bloqueio corresponde à data e ao barbeiro
             if data_bloqueio == data and ('Sem preferência' in barbeiros or bloqueio_dict.get('barbeiro') in barbeiros):
-                horarios_bloqueados.append(bloqueio_dict.get('horario'))
+                horarios_bloqueados.append(horario_bloqueio)
 
         # Buscar agendamentos no Firestore
         agendamentos_ref = db.collection('agendamentos').where('data', '==', data)
@@ -253,6 +252,7 @@ def filtrar_horarios_disponiveis(data, barbeiros):
             agendamento_dict = doc.to_dict()
             st.write(f"📌 Documento agendamento analisado: {agendamento_dict}")
 
+            # Verifica se o agendamento corresponde à data e ao barbeiro
             if 'Sem preferência' in barbeiros or agendamento_dict.get('barbeiro') in barbeiros:
                 horarios_agendados.append(agendamento_dict.get('horario'))
 
@@ -272,8 +272,7 @@ def filtrar_horarios_disponiveis(data, barbeiros):
 
     except Exception as e:
         st.error(f"❌ Erro ao carregar horários do Firestore: {e}")
-        return []
-
+        return []  # Retorna uma lista vazia em caso de erro
 
 
 # Função para bloquear horário automaticamente no Firestore
