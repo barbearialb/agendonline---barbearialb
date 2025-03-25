@@ -220,7 +220,6 @@ def filtrar_horarios_disponiveis(data, barbeiros):
         st.write("✅ Firestore inicializado com sucesso.")
 
     try:
-        # Lista de horários padrão
         horarios = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
                     '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', 
                     '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30']
@@ -235,13 +234,17 @@ def filtrar_horarios_disponiveis(data, barbeiros):
             bloqueio_dict = doc.to_dict()
             st.write(f"📌 Documento bloqueio analisado: {bloqueio_dict}")
 
-            # Validar se o bloqueio corresponde à data e barbeiros
-            if bloqueio_dict.get('data') == data and (
-                'Sem preferência' in barbeiros or bloqueio_dict.get('barbeiro') in barbeiros):
+            # Corrigindo a conversão da data de timestamp para string
+            if isinstance(bloqueio_dict.get('data'), datetime):
+                data_bloqueio = bloqueio_dict.get('data').strftime('%d/%m/%Y')
+            else:
+                data_bloqueio = bloqueio_dict.get('data')
+
+            if data_bloqueio == data and ('Sem preferência' in barbeiros or bloqueio_dict.get('barbeiro') in barbeiros):
                 horarios_bloqueados.append(bloqueio_dict.get('horario'))
 
         # Buscar agendamentos no Firestore
-        agendamentos_ref = db.collection('agendamentos')
+        agendamentos_ref = db.collection('agendamentos').where('data', '==', data)
         agendamentos = list(agendamentos_ref.stream())
         horarios_agendados = []
 
@@ -250,9 +253,7 @@ def filtrar_horarios_disponiveis(data, barbeiros):
             agendamento_dict = doc.to_dict()
             st.write(f"📌 Documento agendamento analisado: {agendamento_dict}")
 
-            # Validar se o agendamento corresponde à data e barbeiros
-            if agendamento_dict.get('data') == data and (
-                'Sem preferência' in barbeiros or agendamento_dict.get('barbeiro') in barbeiros):
+            if 'Sem preferência' in barbeiros or agendamento_dict.get('barbeiro') in barbeiros:
                 horarios_agendados.append(agendamento_dict.get('horario'))
 
         # Logs de horários bloqueados e agendados
