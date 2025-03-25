@@ -1,7 +1,7 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
-from datetime import datetime, timedelta
+from datetime import datetime, time
 import smtplib
 from email.mime.text import MIMEText
 import json
@@ -125,7 +125,7 @@ def atualizar_cores(data, horario):
 
         # Verificando se o horário está entre 12h e 14h nos dias de semana
         dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)  # 0 = segunda, ..., 6 = domingo
-        if dia_semana in range(0, 5) and time(12, 0) <= horario_obj < time(14, 0):
+        if dia_semana in range(0, 5) and datetime.time(12, 0) <= horario_obj < datetime.time(14, 0):
             cores = {"Lucas Borges": "vermelho", "Aluizio": "vermelho", "Sem preferência": "vermelho"}
 
         # Definindo "Sem preferência" como amarelo se apenas um barbeiro estiver disponível
