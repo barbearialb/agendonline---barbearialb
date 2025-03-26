@@ -108,12 +108,16 @@ def obter_disponibilidade(data):
         disponibilidade[barbeiro][horario] = "vermelho"
 
     for horario in horarios:
-        if all(disponibilidade[b][horario] == "vermelho" for b in barbeiros if b != "Sem preferência"):
+        # Verifica se TODOS os barbeiros estão ocupados no horário
+        barbeiros_ocupados = [b for b in barbeiros if disponibilidade[b][horario] == "vermelho" and b != "Sem preferência"]
+        
+        if len(barbeiros_ocupados) == len(barbeiros) - 1:  # Todos, exceto "Sem preferência"
             disponibilidade["Sem preferência"][horario] = "vermelho"
-        elif any(disponibilidade[b][horario] == "verde" for b in barbeiros if b != "Sem preferência"):
+        elif len(barbeiros_ocupados) > 0:  # Pelo menos um barbeiro ocupado
             disponibilidade["Sem preferência"][horario] = "amarelo"
 
     return disponibilidade
+
 
 # Função para verificar disponibilidade do horário no Firebase
 @retry.Retry()
@@ -190,13 +194,12 @@ if st.button("Confirmar Agendamento"):
                     Serviços: {', '.join(servicos_selecionados)}
                     """
                     salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro)
-                    enviar_email("Agendamento Confirmado", resumo)
+                    
+                    # Atualiza disponibilidade, mas sem recarregar a página
+                    st.session_state.disponibilidade = obter_disponibilidade(data)
+                    
                     st.success("Agendamento confirmado com sucesso!")
                     st.info("Resumo do agendamento:\n" + resumo)
-
-                    # Atualiza as bolinhas de disponibilidade e recarrega a interface
-                    st.session_state.disponibilidade = obter_disponibilidade(data)
-                    st.rerun()
                 else:
                     st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário.")
     else:
@@ -221,9 +224,12 @@ if st.button("Cancelar Agendamento"):
             Serviços: {', '.join(cancelado['servicos'])}
             """
             enviar_email("Agendamento Cancelado", resumo_cancelamento)
+
+            # Atualiza disponibilidade sem recarregar a página
+            st.session_state.disponibilidade = obter_disponibilidade(data)
+
             st.success("Agendamento cancelado com sucesso!")
             st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
-            st.session_state.disponibilidade = obter_disponibilidade(data)
-            st.rerun()
         else:
             st.error("Não há agendamento para o telefone informado nesse horário.")
+
