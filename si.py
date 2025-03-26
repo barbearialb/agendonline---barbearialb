@@ -7,6 +7,7 @@ from email.mime.text import MIMEText
 import json
 import google.api_core.exceptions
 import google.api_core.retry as retry
+from google.cloud import firestore
 
 
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
@@ -74,12 +75,16 @@ def enviar_email(assunto, mensagem):
 # Função para salvar agendamento no Firestore
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     chave_agendamento = f"{data}_{horario}"
+    
+    # LOG PARA VER COMO A DATA ESTÁ SENDO SALVA
+    st.write(f"Salvando agendamento: Data={data}, Horário={horario}, Barbeiro={barbeiro}")
+
     db.collection('agendamentos').document(chave_agendamento).set({
         'nome': nome,
         'telefone': telefone,
         'servicos': servicos,
         'barbeiro': barbeiro,
-        'data': data,
+        'data': data,  # Certifique-se de que está salvando a data corretamente
         'horario': horario
     })
 
@@ -99,25 +104,38 @@ def cancelar_agendamento(data, horario, telefone):
         return None
 def obter_disponibilidade(data):
     disponibilidade = {barbeiro: {hora: "verde" for hora in horarios} for barbeiro in barbeiros}
-    agendamentos = db.collection("agendamentos").where("data", "==", data).stream()
+    
+    try:
+        data_formatada = datetime.strptime(data, "%d/%m/%Y")  # Convertendo string para objeto de data
+        data_firestore = firestore.SERVER_TIMESTAMP if isinstance(data, datetime) else data_formatada
 
-    for agendamento in agendamentos:
-        info = agendamento.to_dict()
-        barbeiro = info["barbeiro"]
-        horario = info["horario"]
-        disponibilidade[barbeiro][horario] = "vermelho"
+        agendamentos = db.collection("agendamentos").where("data", "==", data_firestore).stream()
+        agendamentos_lista = list(agendamentos)
 
-    for horario in horarios:
-        # Verifica se TODOS os barbeiros estão ocupados no horário
-        barbeiros_ocupados = [b for b in barbeiros if disponibilidade[b][horario] == "vermelho" and b != "Sem preferência"]
-        
-        if len(barbeiros_ocupados) == len(barbeiros) - 1:  # Todos, exceto "Sem preferência"
-            disponibilidade["Sem preferência"][horario] = "vermelho"
-        elif len(barbeiros_ocupados) > 0:  # Pelo menos um barbeiro ocupado
-            disponibilidade["Sem preferência"][horario] = "amarelo"
+        st.write(f"Agendamentos encontrados para {data}: {len(agendamentos_lista)}")
+
+        for agendamento in agendamentos_lista:
+            info = agendamento.to_dict()
+            st.write(f"Agendamento encontrado: {info}")
+
+            barbeiro = info.get("barbeiro")
+            horario = info.get("horario")
+
+            if barbeiro in disponibilidade and horario in disponibilidade[barbeiro]:
+                disponibilidade[barbeiro][horario] = "vermelho"
+
+        for horario in horarios:
+            barbeiros_ocupados = [b for b in barbeiros if disponibilidade[b][horario] == "vermelho" and b != "Sem preferência"]
+
+            if len(barbeiros_ocupados) == len(barbeiros) - 1:
+                disponibilidade["Sem preferência"][horario] = "vermelho"
+            elif len(barbeiros_ocupados) > 0:
+                disponibilidade["Sem preferência"][horario] = "amarelo"
+
+    except Exception as e:
+        st.error(f"Erro ao obter agendamentos: {e}")
 
     return disponibilidade
-
 
 # Função para verificar disponibilidade do horário no Firebase
 @retry.Retry()
