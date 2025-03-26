@@ -91,40 +91,42 @@ cores_iniciais = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência
 
 import time
 
+import time
+
 def atualizar_cores(data, horario):
     cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
     try:
-        data_obj = datetime.strptime(data, '%d/%m/%Y').date()
-        horario_obj = datetime.strptime(horario, '%H:%M').time()
-        dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
-        horario_minutos = horario_obj.hour * 60 + horario_obj.minute
+        # 🔍 Verifica se a data está no formato correto
+        data_firestore = data  # Como a data no Firestore já está no formato 'DD/MM/YYYY', não precisamos converter
+        horario_firestore = horario  # O mesmo vale para o horário
 
-        # Bloqueio automático de horário de almoço (12h às 14h)
-        if dia_semana in range(0, 5) and 12 * 60 <= horario_minutos < 14 * 60:
-            for barbeiro in barbeiros:
-                cores[barbeiro] = "vermelho"
-            return cores
-
-        # 🔄 Adicionando um pequeno atraso para garantir que os dados no Firestore estejam atualizados
+        # 🕒 Pequeno atraso para garantir que o Firestore já processou os novos agendamentos
         time.sleep(1)
 
-        # 🔎 Consultando Firestore para verificar agendamentos e bloqueios
-        agendamentos_ref = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario)
+        # 🔥 Consulta ao Firestore corrigida
+        agendamentos_ref = db.collection('agendamentos').where('data', '==', data_firestore).where('horario', '==', horario_firestore)
         agendamentos = list(agendamentos_ref.stream())
 
-        bloqueios_ref = db.collection('bloqueios').where('data', '==', data).where('horario', '==', horario)
+        bloqueios_ref = db.collection('bloqueios').where('data', '==', data_firestore).where('horario', '==', horario_firestore)
         bloqueios = list(bloqueios_ref.stream())
 
-        # 📊 Depuração: verificar se os agendamentos estão sendo recuperados corretamente
-        st.write(f"Agendamentos encontrados para {data} {horario}: {len(agendamentos)}")
-        st.write(f"Bloqueios encontrados para {data} {horario}: {len(bloqueios)}")
+        # 🛠 Depuração: Exibir dados retornados pelo Firestore
+        st.write(f"Consulta Firestore: data={data_firestore}, horario={horario_firestore}")
+        st.write(f"Agendamentos encontrados: {len(agendamentos)}")
+        st.write(f"Bloqueios encontrados: {len(bloqueios)}")
+
+        # ✅ Se Firestore ainda não retornou os dados, tenta de novo após um pequeno delay
+        if len(agendamentos) == 0:
+            time.sleep(2)  # Espera mais 2 segundos e tenta de novo
+            agendamentos = list(agendamentos_ref.stream())
+            st.write(f"Tentativa 2: Agendamentos encontrados: {len(agendamentos)}")
 
         # 🎨 Atualizar status conforme Firestore
         for barbeiro in barbeiros:
             if any(ag.to_dict().get('barbeiro') == barbeiro for ag in agendamentos) or any(bl.to_dict().get('barbeiro') == barbeiro for bl in bloqueios):
                 cores[barbeiro] = "vermelho"
 
-        # 📌 Definição do "Sem preferência"
+        # 📌 Atualizar status de "Sem preferência"
         if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
             cores["Sem preferência"] = "verde"
         elif cores["Lucas Borges"] == "vermelho" and cores["Aluizio"] == "vermelho":
@@ -136,7 +138,6 @@ def atualizar_cores(data, horario):
     except Exception as e:
         st.error(f"Erro ao atualizar cores: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
-    
     
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
