@@ -196,7 +196,7 @@ def inserir_agendamento_manual():
         db.collection("agendamentos").document("26-03-2025_08:00").set({
             "barbeiro": "Lucas Borges",
             "data": "27/03/2025",
-            "horario": "08:00",
+            "horario": "11:00",
             "nome": "Teste",
             "telefone": "123456789",
             "servicos": ["Social"]
