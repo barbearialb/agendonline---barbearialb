@@ -96,18 +96,19 @@ def enviar_email(assunto, mensagem):
 # Função para salvar agendamento no Firestore
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     chave_agendamento = f"{data}_{horario}"
-    
-    # LOG PARA VER COMO A DATA ESTÁ SENDO SALVA
     st.write(f"Salvando agendamento: Data={data}, Horário={horario}, Barbeiro={barbeiro}")
-
-    db.collection('agendamentos').document(chave_agendamento).set({
-        'nome': nome,
-        'telefone': telefone,
-        'servicos': servicos,
-        'barbeiro': barbeiro,
-        'data': data,  # Certifique-se de que está salvando a data corretamente
-        'horario': horario
-    })
+    try:
+        db.collection('agendamentos').document(chave_agendamento).set({
+            'nome': nome,
+            'telefone': telefone,
+            'servicos': servicos,
+            'barbeiro': barbeiro,
+            'data': data,  # Certifique-se de que está no formato "%d/%m/%Y"
+            'horario': horario
+        })
+        st.write("Agendamento salvo com sucesso!")
+    except Exception as e:
+        st.error(f"Erro ao salvar agendamento: {e}")
 
 # Função para cancelar agendamento no Firestore
 def cancelar_agendamento(data, horario, telefone):
@@ -126,16 +127,11 @@ def cancelar_agendamento(data, horario, telefone):
     
 def obter_disponibilidade(data):
     disponibilidade = {barbeiro: {hora: "verde" for hora in horarios} for barbeiro in barbeiros}
-    
-    try:
-        data_formatada = datetime.strptime(data, "%d/%m/%Y")  # Convertendo string para objeto de data
-        
-        # Firestore não usa SERVER_TIMESTAMP para consultas, basta formatar a data corretamente
-        data_firestore = data_formatada  
 
-        agendamentos = db.collection("agendamentos").where("data", "==", data_firestore).stream()
+    try:
+        agendamentos = db.collection("agendamentos").where("data", "==", data).stream()  # Comparação direta como string
         agendamentos_lista = list(agendamentos)  # Converte para lista para contar
-        
+
         st.write(f"Agendamentos encontrados para {data}: {len(agendamentos_lista)}")  # Log para depuração
 
         for agendamento in agendamentos_lista:
@@ -152,7 +148,7 @@ def obter_disponibilidade(data):
         for horario in horarios:
             barbeiros_ocupados = [b for b in barbeiros if disponibilidade[b][horario] == "vermelho" and b != "Sem preferência"]
 
-            if len(barbeiros_ocupados) == len(barbeiros) - 1:  
+            if len(barbeiros_ocupados) == len(barbeiros) - 1:
                 disponibilidade["Sem preferência"][horario] = "vermelho"
             elif len(barbeiros_ocupados) > 0:
                 disponibilidade["Sem preferência"][horario] = "amarelo"
@@ -161,7 +157,6 @@ def obter_disponibilidade(data):
         st.error(f"Erro ao obter agendamentos: {e}")
 
     return disponibilidade
-
 
 # Função para verificar disponibilidade do horário no Firebase
 @retry.Retry()
