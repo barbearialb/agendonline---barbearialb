@@ -244,10 +244,14 @@ st.markdown("### Status dos Barbeiros (Atualizado):")
 for horario in horarios_disponiveis:
     cores = atualizar_cores(data, horario)  
 
-if not isinstance(cores, dict):  # Se não for um dicionário, define um padrão seguro
-    cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
-   
+    # Se cores não for um dicionário, define um padrão seguro
+    if not isinstance(cores, dict):
+        cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
+
+    # Exibe o horário antes dos barbeiros
     st.markdown(f"**{horario}**")  # Exibe o horário em negrito
+
+    # Exibe a cor correspondente a cada barbeiro
     for barbeiro, cor in cores.items():
         if cor == "verde":
             st.markdown(f"🟢 {barbeiro}")
@@ -257,8 +261,8 @@ if not isinstance(cores, dict):  # Se não for um dicionário, define um padrão
             st.markdown(f"🔴 {barbeiro}")
         else:
             st.markdown(f"⚪ {barbeiro} (Erro)")
-    st.markdown("---")  # Linha separadora
 
+    st.markdown("---")  # Linha separadora para organização
 
 horario = st.selectbox("Selecione o Horário", horarios_disponiveis)
 
