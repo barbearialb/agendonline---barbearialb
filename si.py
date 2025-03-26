@@ -10,7 +10,7 @@ import google.api_core.exceptions
 import google.api_core.retry as retry
 import random
 import time
-
+import threading
 
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -89,28 +89,24 @@ def enviar_email(assunto, mensagem):
 
 cores_iniciais = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}  # Inicialização fora da função
 
-import time
-
-import time
-
 def atualizar_cores(data, horario):
     cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
     try:
-        # 🔍 Verifica se a data está no formato correto
+        #  Verifica se a data está no formato correto
         data_firestore = data  # Como a data no Firestore já está no formato 'DD/MM/YYYY', não precisamos converter
         horario_firestore = horario  # O mesmo vale para o horário
 
-        # 🕒 Pequeno atraso para garantir que o Firestore já processou os novos agendamentos
+        #  Pequeno atraso para garantir que o Firestore já processou os novos agendamentos
         time.sleep(1)
 
-        # 🔥 Consulta ao Firestore corrigida
+        #  Consulta ao Firestore corrigida
         agendamentos_ref = db.collection('agendamentos').where('data', '==', data_firestore).where('horario', '==', horario_firestore)
         agendamentos = list(agendamentos_ref.stream())
 
         bloqueios_ref = db.collection('bloqueios').where('data', '==', data_firestore).where('horario', '==', horario_firestore)
         bloqueios = list(bloqueios_ref.stream())
 
-        # 🛠 Depuração: Exibir dados retornados pelo Firestore
+        #  Depuração: Exibir dados retornados pelo Firestore
         st.write(f"Consulta Firestore: data={data_firestore}, horario={horario_firestore}")
         st.write(f"Agendamentos encontrados: {len(agendamentos)}")
         st.write(f"Bloqueios encontrados: {len(bloqueios)}")
@@ -121,12 +117,12 @@ def atualizar_cores(data, horario):
             agendamentos = list(agendamentos_ref.stream())
             st.write(f"Tentativa 2: Agendamentos encontrados: {len(agendamentos)}")
 
-        # 🎨 Atualizar status conforme Firestore
+        #  Atualizar status conforme Firestore
         for barbeiro in barbeiros:
             if any(ag.to_dict().get('barbeiro') == barbeiro for ag in agendamentos) or any(bl.to_dict().get('barbeiro') == barbeiro for bl in bloqueios):
                 cores[barbeiro] = "vermelho"
 
-        # 📌 Atualizar status de "Sem preferência"
+        #  Atualizar status de "Sem preferência"
         if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
             cores["Sem preferência"] = "verde"
         elif cores["Lucas Borges"] == "vermelho" and cores["Aluizio"] == "vermelho":
@@ -138,7 +134,7 @@ def atualizar_cores(data, horario):
     except Exception as e:
         st.error(f"Erro ao atualizar cores: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
-    
+
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
     if not db:
@@ -163,7 +159,7 @@ def verificar_disponibilidade(data, horario):
     except Exception as e:
         st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
         return False  # Retorna False em caso de erro
-    
+
 # Função para salvar agendamento no Firestore
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     if barbeiro == "Sem preferência":
@@ -239,7 +235,7 @@ def desbloquear_horario(data, horario, barbeiro):
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
 st.image("https://github.com/barbearialb/agendonline---barbearialb/blob/main/icone.png?raw=true",
-         use_container_width=True)
+            use_container_width=True)
 
 # Aba de Agendamento
 st.subheader("Agendar Horário")
@@ -285,6 +281,38 @@ st.write("Preços dos serviços:")
 for servico, preco in servicos_com_preco.items():
     st.write(f"{servico}: {preco}")
 
+def verificar_e_recarregar(data, horario, telefone, tipo_operacao):
+    """Verifica o Firestore e recarrega a página quando os dados são encontrados."""
+    chave_agendamento = f"{data}_{horario}"
+    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+    tentativas = 0
+    while tentativas < 10:  # Tenta por até 10 segundos
+        doc = agendamento_ref.get()
+        if doc.exists:
+            if tipo_operacao == "cancelamento" and doc.to_dict()['telefone'] == telefone:
+                st.experimental_rerun()  # Recarrega a página
+                return
+            elif tipo_operacao == "agendamento":
+                st.experimental_rerun()  # Recarrega a página
+                return
+        time.sleep(1)  # Espera 1 segundo antes de tentar novamente
+        tentativas += 1
+    st.error("Tempo limite excedido. Não foi possível encontrar os dados no Firestore.")
+
+def atualizar_e_exibir_cores(data, horario):
+    """Atualiza as cores e exibe o status dos barbeiros."""
+    cores = atualizar_cores(data, horario)
+    st.markdown("### Status dos Barbeiros (Atualizado):")
+    for b, cor in cores.items():
+        if cor == "verde":
+            st.markdown(f"🟢 {b}")
+        elif cor == "amarelo":
+            st.markdown(f"🟡 {b}")
+        elif cor == "vermelho":
+            st.markdown(f"🔴 {b}")
+        else:
+            st.markdown(f"⚪ {b} (Erro)")
+
 # Validação dos serviços selecionados
 if st.button("Confirmar Agendamento"):  # <--- Mudança aqui
     if nome and telefone and servicos_selecionados:
@@ -297,7 +325,7 @@ if st.button("Confirmar Agendamento"):  # <--- Mudança aqui
                 st.error("Não há barbeiros disponíveis para este horário. Por favor, escolha outro horário ou barbeiro.")
                 st.stop()  # Interrompe a execução do script
 
-            if barbeiro_escolhido != "Sem preferência":
+            if barbeiro_escolhido !="Sem preferência":
                 barbeiro = barbeiro_escolhido
 
         if len(servicos_selecionados) > 2:
@@ -319,19 +347,7 @@ if st.button("Confirmar Agendamento"):  # <--- Mudança aqui
                     time.sleep(1)  # Espera 1 segundo
 
                     # Atualizar status dos barbeiros após o agendamento
-                    cores = atualizar_cores(data, horario)
-
-                    # Exibir status dos barbeiros
-                    st.markdown("### Status dos Barbeiros (Atualizado):")
-                    for b, cor in cores.items():
-                        if cor == "verde":
-                            st.markdown(f"🟢 {b}")
-                        elif cor == "amarelo":
-                            st.markdown(f"🟡 {b}")
-                        elif cor == "vermelho":
-                            st.markdown(f"🔴 {b}")
-                        else:
-                            st.markdown(f"⚪ {b} (Erro)")
+                    atualizar_e_exibir_cores(data, horario)
 
                     # Resumo do agendamento
                     resumo = f"""
@@ -343,17 +359,16 @@ if st.button("Confirmar Agendamento"):  # <--- Mudança aqui
                     Serviços: {', '.join(servicos_selecionados)}
                     """
                     enviar_email("Agendamento Confirmado", resumo)
-                    st.success("Agendamento confirmado com sucesso! Um e-mail de confirmação foi enviado.")
+                    st.success("Agendamento confirmado com sucesso!")
                     st.info("Resumo do agendamento:\n" + resumo)
 
-                    st.cache_data.clear()  # Limpa o cache
-                    st.rerun()
+                    threading.Thread(target=verificar_e_recarregar, args=(data, horario, telefone, "agendamento")).start()
+                    st.success("Agendamento confirmado. Aguarde a atualização da página...")
+
                 else:
                     st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário.")
     else:
         st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
-    st.cache_data.clear()
-    st.rerun()
 
 # Aba de Cancelamento
 st.subheader("Cancelar Agendamento")
@@ -366,17 +381,7 @@ if st.button("Cancelar Agendamento"):
         if cancelado:
             time.sleep(1)  # Espera 1 segundo
             # Atualizar status dos barbeiros após o cancelamento
-            cores = atualizar_cores(data, horario_cancelar)
-            st.markdown("### Status dos Barbeiros (Atualizado):")
-            for b, cor in cores.items():
-                if cor == "verde":
-                    st.markdown(f"🟢 {b}")
-                elif cor == "amarelo":
-                    st.markdown(f"🟡 {b}")
-                elif cor == "vermelho":
-                    st.markdown(f"🔴{b}")
-                else:
-                    st.markdown(f"⚪ {b} (Erro)")
+            atualizar_e_exibir_cores(data, horario_cancelar)
 
             # Resumo do cancelamento
             resumo_cancelamento = f"""
@@ -388,7 +393,8 @@ if st.button("Cancelar Agendamento"):
             Serviços: {', '.join(cancelado['servicos'])}
             """
             st.info("Cancelamento realizado com sucesso!\n" + resumo_cancelamento)
-            st.rerun()  # Força a atualização da interface
+
+            threading.Thread(target=verificar_e_recarregar, args=(data, horario_cancelar, telefone_cancelar, "cancelamento")).start()
+            st.success("Cancelamento confirmado. Aguarde a atualização da página...")
         else:
             st.error("Agendamento não encontrado ou telefone incorreto.")
-    st.cache_data.clear()  # Limpa o cache
