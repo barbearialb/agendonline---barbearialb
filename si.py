@@ -52,7 +52,7 @@ servicos = {
     "Social": 18,
     "Degradê": 23,
     "Navalhado": 25,
-    "Pezim": 5,
+    "Pezim": 7,
     "Barba": 15,
 }
 
@@ -206,77 +206,6 @@ def cancelar_agendamento(data, horario, telefone):
         st.error(f"Erro ao acessar o Firestore: {e}")
         return None
 
-
-# Função para verificar disponibilidade do horário no Firebase
-
-
-def filtrar_horarios_disponiveis(data, barbeiros):
-    st.write(f"🔍 Filtrando horários disponíveis para data: {data}, barbeiros: {barbeiros}")
-
-    if not db:
-        st.error("❌ Firestore não inicializado.")
-        return []  # Retorna uma lista vazia se Firestore não estiver disponível
-    else:
-        st.write("✅ Firestore inicializado com sucesso.")
-
-    try:
-        horarios = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', 
-                    '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', 
-                    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30']
-
-        # Buscar bloqueios no Firestore
-        bloqueios_ref = db.collection('bloqueios')
-        bloqueios = list(bloqueios_ref.stream())
-        horarios_bloqueados = []
-
-        st.write("📂 Verificando bloqueios no Firestore...")
-        for doc in bloqueios:
-            bloqueio_dict = doc.to_dict()
-            st.write(f"📌 Documento bloqueio analisado: {bloqueio_dict}")
-
-            # A data do bloqueio no Firestore é salva como string, então podemos comparar diretamente
-            data_bloqueio = bloqueio_dict.get('data')  # Presumimos que a data já é uma string como '25/03/2025'
-            horario_bloqueio = bloqueio_dict.get('horario')  # Horário específico do bloqueio
-
-            # Verifica se o bloqueio corresponde à data e ao barbeiro
-            if data_bloqueio == data and ('Sem preferência' in barbeiros or bloqueio_dict.get('barbeiro') in barbeiros):
-                horarios_bloqueados.append(horario_bloqueio)
-
-        # Buscar agendamentos no Firestore
-        agendamentos_ref = db.collection('agendamentos').where('data', '==', data)
-        agendamentos = list(agendamentos_ref.stream())
-        horarios_agendados = []
-
-        st.write("📂 Verificando agendamentos no Firestore...")
-        for doc in agendamentos:
-            agendamento_dict = doc.to_dict()
-            st.write(f"📌 Documento agendamento analisado: {agendamento_dict}")
-
-            # Verifica se o agendamento corresponde à data e ao barbeiro
-            if 'Sem preferência' in barbeiros or agendamento_dict.get('barbeiro') in barbeiros:
-                horarios_agendados.append(agendamento_dict.get('horario'))
-
-        # Logs de horários bloqueados e agendados
-        st.write(f"📋 Horários bloqueados: {horarios_bloqueados}")
-        st.write(f"📋 Horários agendados: {horarios_agendados}")
-
-        # Combinar horários indisponíveis
-        horarios_indisponiveis = set(horarios_bloqueados + horarios_agendados)
-        st.write(f"🚫 Horários indisponíveis: {list(horarios_indisponiveis)}")
-
-        # Filtrar horários disponíveis
-        horarios_disponiveis = [h for h in horarios if h not in horarios_indisponiveis]
-        st.write(f"✅ Horários disponíveis: {horarios_disponiveis}")
-
-        return horarios_disponiveis
-
-    except Exception as e:
-        st.error(f"❌ Erro ao carregar horários do Firestore: {e}")
-        return []  # Retorna uma lista vazia em caso de erro
-
-
-# Função para bloquear horário automaticamente no Firestore
-
 def bloquear_horario(data, horario, barbeiro):
     if horario not in horarios:
         return  # Caso o próximo horário não exista, sai da função
@@ -307,23 +236,29 @@ nome = st.text_input("Nome")
 telefone = st.text_input("Telefone")
 data = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
 barbeiro_escolhido = st.selectbox(" Escolha o barbeiro:", barbeiros)
-horarios_disponiveis = filtrar_horarios_disponiveis(data, barbeiros)
+# Lista de horários disponíveis (caso não esteja filtrando do Firestore)
+horarios_disponiveis = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
-# Exibir horários disponíveis com bolinhas coloridas (corrigido)
-st.markdown("### Horários Disponíveis:")
+# Exibir horários disponíveis com status dos barbeiros
+st.markdown("### Status dos Barbeiros (Atualizado):")
 for horario in horarios_disponiveis:
-    cores = atualizar_cores(data, horario)  # Atualiza as cores para cada horário
-    status_str = ""
-    for b, cor in cores.items():
+    cores = atualizar_cores(data, horario)  
+
+if not isinstance(cores, dict):  # Se não for um dicionário, define um padrão seguro
+    cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
+   
+    st.markdown(f"**{horario}**")  # Exibe o horário em negrito
+    for barbeiro, cor in cores.items():
         if cor == "verde":
-            status_str += f"🟢 {b} "
+            st.markdown(f"🟢 {barbeiro}")
         elif cor == "amarelo":
-            status_str += f"🟡 {b} "
+            st.markdown(f"🟡 {barbeiro}")
         elif cor == "vermelho":
-            status_str += f"🔴 {b} "
+            st.markdown(f"🔴 {barbeiro}")
         else:
-            status_str += f"⚪ {b} (Erro) "
-    st.markdown(f"{horario} - {status_str}")
+            st.markdown(f"⚪ {barbeiro} (Erro)")
+    st.markdown("---")  # Linha separadora
+
 
 horario = st.selectbox("Selecione o Horário", horarios_disponiveis)
 
