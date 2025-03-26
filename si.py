@@ -89,6 +89,8 @@ def enviar_email(assunto, mensagem):
 
 cores_iniciais = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}  # Inicialização fora da função
 
+import time
+
 def atualizar_cores(data, horario):
     cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
     try:
@@ -97,25 +99,32 @@ def atualizar_cores(data, horario):
         dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
         horario_minutos = horario_obj.hour * 60 + horario_obj.minute
 
-        # Bloqueio automático apenas para 12:00 até 14:00
+        # Bloqueio automático de horário de almoço (12h às 14h)
         if dia_semana in range(0, 5) and 12 * 60 <= horario_minutos < 14 * 60:
             for barbeiro in barbeiros:
                 cores[barbeiro] = "vermelho"
             return cores
 
-        # Consultando Firestore para verificar agendamentos e bloqueios
+        # 🔄 Adicionando um pequeno atraso para garantir que os dados no Firestore estejam atualizados
+        time.sleep(1)
+
+        # 🔎 Consultando Firestore para verificar agendamentos e bloqueios
         agendamentos_ref = db.collection('agendamentos').where('data', '==', data).where('horario', '==', horario)
         agendamentos = list(agendamentos_ref.stream())
 
         bloqueios_ref = db.collection('bloqueios').where('data', '==', data).where('horario', '==', horario)
         bloqueios = list(bloqueios_ref.stream())
 
-        # Atualizar status conforme Firestore
+        # 📊 Depuração: verificar se os agendamentos estão sendo recuperados corretamente
+        st.write(f"Agendamentos encontrados para {data} {horario}: {len(agendamentos)}")
+        st.write(f"Bloqueios encontrados para {data} {horario}: {len(bloqueios)}")
+
+        # 🎨 Atualizar status conforme Firestore
         for barbeiro in barbeiros:
             if any(ag.to_dict().get('barbeiro') == barbeiro for ag in agendamentos) or any(bl.to_dict().get('barbeiro') == barbeiro for bl in bloqueios):
                 cores[barbeiro] = "vermelho"
 
-        # Definição do "Sem preferência"
+        # 📌 Definição do "Sem preferência"
         if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
             cores["Sem preferência"] = "verde"
         elif cores["Lucas Borges"] == "vermelho" and cores["Aluizio"] == "vermelho":
@@ -127,6 +136,7 @@ def atualizar_cores(data, horario):
     except Exception as e:
         st.error(f"Erro ao atualizar cores: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
+    
     
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
@@ -341,6 +351,8 @@ if st.button("Confirmar Agendamento"):  # <--- Mudança aqui
                     st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário.")
     else:
         st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
+    st.cache_data.clear()
+    st.rerun()
 
 # Aba de Cancelamento
 st.subheader("Cancelar Agendamento")
