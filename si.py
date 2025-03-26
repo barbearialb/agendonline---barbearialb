@@ -92,37 +92,37 @@ cores_iniciais = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência
 def atualizar_cores(data, horario):
     cores = {"Lucas Borges": "verde", "Aluizio": "verde", "Sem preferência": "verde"}
     try:
-        #  Verifica se a data está no formato correto
-        data_firestore = data  # Como a data no Firestore já está no formato 'DD/MM/YYYY', não precisamos converter
-        horario_firestore = horario  # O mesmo vale para o horário
+        # Garantir que a data esteja formatada corretamente
+        data_obj = datetime.strptime(data, '%d/%m/%Y')
+        data_firestore = data_obj.strftime('%d/%m/%Y')
 
-        #  Pequeno atraso para garantir que o Firestore já processou os novos agendamentos
+        # Pequeno atraso para garantir sincronização com Firestore
         time.sleep(1)
 
-        #  Consulta ao Firestore corrigida
-        agendamentos_ref = db.collection('agendamentos').where('data', '==', data_firestore).where('horario', '==', horario_firestore)
+        # Consultar Firestore corretamente
+        agendamentos_ref = db.collection('agendamentos').where('data', '==', data_firestore).where('horario', '==', horario)
         agendamentos = list(agendamentos_ref.stream())
 
-        bloqueios_ref = db.collection('bloqueios').where('data', '==', data_firestore).where('horario', '==', horario_firestore)
+        bloqueios_ref = db.collection('bloqueios').where('data', '==', data_firestore).where('horario', '==', horario)
         bloqueios = list(bloqueios_ref.stream())
 
-        #  Depuração: Exibir dados retornados pelo Firestore
-        st.write(f"Consulta Firestore: data={data_firestore}, horario={horario_firestore}")
+        # Exibir logs de depuração para ajudar a identificar erros
+        st.write(f"Consulta Firestore: data={data_firestore}, horario={horario}")
         st.write(f"Agendamentos encontrados: {len(agendamentos)}")
         st.write(f"Bloqueios encontrados: {len(bloqueios)}")
 
-        # ✅ Se Firestore ainda não retornou os dados, tenta de novo após um pequeno delay
+        # Se Firestore não retornou nada, aguarde e tente novamente
         if len(agendamentos) == 0:
-            time.sleep(2)  # Espera mais 2 segundos e tenta de novo
+            time.sleep(2)
             agendamentos = list(agendamentos_ref.stream())
             st.write(f"Tentativa 2: Agendamentos encontrados: {len(agendamentos)}")
 
-        #  Atualizar status conforme Firestore
+        # Atualizar status conforme Firestore
         for barbeiro in barbeiros:
             if any(ag.to_dict().get('barbeiro') == barbeiro for ag in agendamentos) or any(bl.to_dict().get('barbeiro') == barbeiro for bl in bloqueios):
                 cores[barbeiro] = "vermelho"
 
-        #  Atualizar status de "Sem preferência"
+        # Atualizar status de "Sem preferência"
         if cores["Lucas Borges"] == "verde" and cores["Aluizio"] == "verde":
             cores["Sem preferência"] = "verde"
         elif cores["Lucas Borges"] == "vermelho" and cores["Aluizio"] == "vermelho":
@@ -135,30 +135,30 @@ def atualizar_cores(data, horario):
         st.error(f"Erro ao atualizar cores: {e}")
         return {"Lucas Borges": "erro", "Aluizio": "erro", "Sem preferência": "erro"}
 
+
 @retry.Retry()
 def verificar_disponibilidade(data, horario):
     if not db:
         st.error("Firestore não inicializado.")
-        return False  # Retorna False se o Firestore não estiver inicializado
+        return False
 
     try:
-        # Verifica se o horário está dentro do horário de almoço (12h - 14h) em dias de semana
         data_obj = datetime.strptime(data, '%d/%m/%Y').date()
         dia_semana = calendar.weekday(data_obj.year, data_obj.month, data_obj.day)
-        if dia_semana in range(0, 5) and "12:00" <= horario < "14:00":
-            return False  # Retorna False para bloquear o horário de almoço
+        
+        # Bloquear corretamente o intervalo das 12h às 14h
+        if dia_semana in range(0, 5) and "12:00" <= horario <= "13:30":
+            return False  
 
         chave_agendamento = f"{data}_{horario}"
         agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
         doc = agendamento_ref.get()
-        return not doc.exists  # Retorna True se o horário estiver disponível
+        return not doc.exists 
 
-    except google.api_core.exceptions.RetryError as e:
-        st.error(f"Erro de conexão com o Firestore: {e}")
-        return False  # Retorna False em caso de erro
     except Exception as e:
-        st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
-        return False  # Retorna False em caso de erro
+        st.error(f"Erro ao verificar disponibilidade: {e}")
+        return False
+
 
 # Função para salvar agendamento no Firestore
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
@@ -282,22 +282,17 @@ for servico, preco in servicos_com_preco.items():
     st.write(f"{servico}: {preco}")
 
 def verificar_e_recarregar(data, horario, telefone, tipo_operacao):
-    """Verifica o Firestore e recarrega a página quando os dados são encontrados."""
+    """Verifica o Firestore e atualiza as cores dinamicamente sem recarregar a página."""
     chave_agendamento = f"{data}_{horario}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     tentativas = 0
-    while tentativas < 10:  # Tenta por até 10 segundos
+    while tentativas < 10:  
         doc = agendamento_ref.get()
         if doc.exists:
-            if tipo_operacao == "cancelamento" and doc.to_dict()['telefone'] == telefone:
-                st.experimental_rerun()  # Recarrega a página
-                return
-            elif tipo_operacao == "agendamento":
-                st.experimental_rerun()  # Recarrega a página
-                return
-        time.sleep(1)  # Espera 1 segundo antes de tentar novamente
+            atualizar_cores(data, horario)  # Atualiza dinamicamente sem recarregar
+            return
+        time.sleep(1)
         tentativas += 1
-    st.error("Tempo limite excedido. Não foi possível encontrar os dados no Firestore.")
 
 def atualizar_e_exibir_cores(data, horario):
     """Atualiza as cores e exibe o status dos barbeiros."""
