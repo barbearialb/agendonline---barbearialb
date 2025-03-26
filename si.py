@@ -1,16 +1,13 @@
 import streamlit as st
 import firebase_admin
-from firebase_admin import credentials, firestore, auth
+from firebase_admin import credentials, firestore as admin_firestore
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 import json
 import google.api_core.exceptions
 import google.api_core.retry as retry
-from google.cloud import firestore
 
-
-# Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
 EMAIL = None
 SENHA = None
@@ -48,13 +45,25 @@ else:
 # Obter referência do Firestore
 if firebase_admin._apps:
     try:
-        db = firestore.client()
+        db = admin_firestore.client()
         st.write("Firestore inicializado com sucesso!")  # Log para verificação
     except Exception as e:
         st.error(f"Erro ao inicializar Firestore: {e}")
         db = None
 else:
-    db = None  # Evita erros ao tentar acessar Firestore sem inicialização
+    db = None
+    st.error("Firebase não foi inicializado corretamente.")
+
+# Testar a conexão com Firestore
+if db:
+    try:
+        st.write("Testando conexão com Firestore...")
+        docs = db.collection("agendamentos").limit(1).stream()
+        st.write(f"Firestore acessível! Número de documentos encontrados: {len(list(docs))}")
+    except Exception as e:
+        st.error(f"Erro ao acessar Firestore: {e}")
+else:
+    st.error("Firestore não foi inicializado corretamente.")
 
 # Dados básicos
 horarios = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
@@ -114,21 +123,24 @@ def cancelar_agendamento(data, horario, telefone):
     except Exception as e:
         st.error(f"Erro ao acessar o Firestore: {e}")
         return None
+    
 def obter_disponibilidade(data):
     disponibilidade = {barbeiro: {hora: "verde" for hora in horarios} for barbeiro in barbeiros}
     
     try:
         data_formatada = datetime.strptime(data, "%d/%m/%Y")  # Convertendo string para objeto de data
-        data_firestore = firestore.SERVER_TIMESTAMP if isinstance(data, datetime) else data_formatada
+        
+        # Firestore não usa SERVER_TIMESTAMP para consultas, basta formatar a data corretamente
+        data_firestore = data_formatada  
 
         agendamentos = db.collection("agendamentos").where("data", "==", data_firestore).stream()
-        agendamentos_lista = list(agendamentos)
-
-        st.write(f"Agendamentos encontrados para {data}: {len(agendamentos_lista)}")
+        agendamentos_lista = list(agendamentos)  # Converte para lista para contar
+        
+        st.write(f"Agendamentos encontrados para {data}: {len(agendamentos_lista)}")  # Log para depuração
 
         for agendamento in agendamentos_lista:
             info = agendamento.to_dict()
-            st.write(f"Agendamento encontrado: {info}")
+            st.write(f"Agendamento encontrado: {info}")  # Log para verificar os dados
 
             barbeiro = info.get("barbeiro")
             horario = info.get("horario")
@@ -136,10 +148,11 @@ def obter_disponibilidade(data):
             if barbeiro in disponibilidade and horario in disponibilidade[barbeiro]:
                 disponibilidade[barbeiro][horario] = "vermelho"
 
+        # Atualizando a lógica do "Sem preferência"
         for horario in horarios:
             barbeiros_ocupados = [b for b in barbeiros if disponibilidade[b][horario] == "vermelho" and b != "Sem preferência"]
 
-            if len(barbeiros_ocupados) == len(barbeiros) - 1:
+            if len(barbeiros_ocupados) == len(barbeiros) - 1:  
                 disponibilidade["Sem preferência"][horario] = "vermelho"
             elif len(barbeiros_ocupados) > 0:
                 disponibilidade["Sem preferência"][horario] = "amarelo"
@@ -148,6 +161,7 @@ def obter_disponibilidade(data):
         st.error(f"Erro ao obter agendamentos: {e}")
 
     return disponibilidade
+
 
 # Função para verificar disponibilidade do horário no Firebase
 @retry.Retry()
