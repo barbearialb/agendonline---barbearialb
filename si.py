@@ -8,6 +8,7 @@ import json
 import google.api_core.exceptions
 import google.api_core.retry as retry
 
+
 FIREBASE_CREDENTIALS = None
 EMAIL = None
 SENHA = None
@@ -129,22 +130,29 @@ def obter_disponibilidade(data):
     disponibilidade = {barbeiro: {hora: "verde" for hora in horarios} for barbeiro in barbeiros}
 
     try:
-        agendamentos = db.collection("agendamentos").where("data", "==", data).stream()  # Comparação direta como string
-        agendamentos_lista = list(agendamentos)  # Converte para lista para contar
+        # Log para depuração
+        st.write(f"Obtendo disponibilidade para a data: {data}")
 
-        st.write(f"Agendamentos encontrados para {data}: {len(agendamentos_lista)}")  # Log para depuração
+        # Consultar a coleção "agendamentos" filtrando pela data
+        agendamentos = db.collection("agendamentos").where("data", "==", data).stream()
 
-        for agendamento in agendamentos_lista:
+        # Contar o número de agendamentos diretamente no iterador
+        contador = 0
+        for agendamento in agendamentos:
+            contador += 1
             info = agendamento.to_dict()
-            st.write(f"Agendamento encontrado: {info}")  # Log para verificar os dados
+            st.write(f"Agendamento encontrado: {info}")  # Log para depuração
 
             barbeiro = info.get("barbeiro")
             horario = info.get("horario")
 
+            # Atualizar disponibilidade com base nos agendamentos
             if barbeiro in disponibilidade and horario in disponibilidade[barbeiro]:
                 disponibilidade[barbeiro][horario] = "vermelho"
 
-        # Atualizando a lógica do "Sem preferência"
+        st.write(f"Agendamentos encontrados para {data}: {contador}")  # Número total de agendamentos
+
+        # Atualizando lógica para "Sem preferência"
         for horario in horarios:
             barbeiros_ocupados = [b for b in barbeiros if disponibilidade[b][horario] == "vermelho" and b != "Sem preferência"]
 
@@ -182,6 +190,23 @@ def verificar_disponibilidade(data, horario):
 if "disponibilidade" not in st.session_state:
     data_hoje = datetime.today().strftime('%d/%m/%Y')
     st.session_state.disponibilidade = obter_disponibilidade(data_hoje)
+
+def inserir_agendamento_manual():
+    try:
+        db.collection("agendamentos").document("26-03-2025_08:00").set({
+            "barbeiro": "Lucas Borges",
+            "data": "27/03/2025",
+            "horario": "08:00",
+            "nome": "Teste",
+            "telefone": "123456789",
+            "servicos": ["Social"]
+        })
+        st.write("Agendamento inserido manualmente com sucesso!")
+    except Exception as e:
+        st.error(f"Erro ao inserir agendamento manualmente: {e}")
+
+# Chamar a função para executar a inserção
+inserir_agendamento_manual()
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
