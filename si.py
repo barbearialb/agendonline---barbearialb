@@ -37,12 +37,24 @@ if FIREBASE_CREDENTIALS:
         try:
             cred = credentials.Certificate(FIREBASE_CREDENTIALS)
             firebase_admin.initialize_app(cred)
+            st.write("Firebase inicializado com sucesso!")  # Log para verificação
         except Exception as e:
             st.error(f"Erro ao inicializar o Firebase: {e}")
-    
+    else:
+        st.write("Firebase já estava inicializado.")  # Log para depuração
+else:
+    st.error("Credenciais do Firebase não foram carregadas corretamente.")
 
 # Obter referência do Firestore
-db = firestore.client() if firebase_admin._apps else None
+if firebase_admin._apps:
+    try:
+        db = firestore.client()
+        st.write("Firestore inicializado com sucesso!")  # Log para verificação
+    except Exception as e:
+        st.error(f"Erro ao inicializar Firestore: {e}")
+        db = None
+else:
+    db = None  # Evita erros ao tentar acessar Firestore sem inicialização
 
 # Dados básicos
 horarios = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
