@@ -185,7 +185,6 @@ for servico, preco in servicos_com_preco.items():
     st.write(f"{servico}: {preco}")
 
 # Validação dos serviços selecionados
-# Validação dos serviços selecionados
 if st.button("Confirmar Agendamento"):
     if nome and telefone and servicos_selecionados:
         if "Sem preferência" in barbeiro:
