@@ -206,13 +206,14 @@ st.write("Preços dos serviços:")
 for servico, preco in servicos_com_preco.items():
     st.write(f"{servico}: {preco}")
 
-# Validação dos serviços selecionados
+
 if st.button("Confirmar Agendamento"):
-    if nome and telefone and servicos_selecionados:
-        if "Sem preferência" in barbeiro:
+    with st.spinner("Processando agendamento..."):
+        if nome and telefone and servicos_selecionados:
+            if "Sem preferência" in barbeiro:
             # Verifica se ambos os barbeiros estão ocupados
-            if not verificar_disponibilidade(data, horario, barbeiros[0]) and not verificar_disponibilidade(data, horario, barbeiros[1]):
-                st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
+                if not verificar_disponibilidade(data, horario, barbeiros[0]) and not verificar_disponibilidade(data, horario, barbeiros[1]):
+                    st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
             else:
                 # Seleciona um barbeiro aleatoriamente que esteja disponível
                 barbeiros_disponiveis = [b for b in barbeiros if verificar_disponibilidade(data, horario, b)]
@@ -288,8 +289,8 @@ if st.button("Confirmar Agendamento"):
                     st.info("Resumo do agendamento:\n" + resumo)
             else:
                 st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário ou veja outro barbeiro.")
-    else:
-        st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
+else:
+    st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
 
 # Aba de Cancelamento
 st.subheader("Cancelar Agendamento")
