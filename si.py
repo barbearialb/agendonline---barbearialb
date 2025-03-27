@@ -76,10 +76,8 @@ def enviar_email(assunto, mensagem):
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
 
-# Função para salvar agendamento no Firestore
-# Função para salvar agendamento no Firestore
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
-    chave_agendamento = f"{data}_{horario}" # Remove o barbeiro da chave
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"  # Inclui o barbeiro na chave
     db.collection('agendamentos').document(chave_agendamento).set({
         'nome': nome,
         'telefone': telefone,
@@ -88,6 +86,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
         'data': data,
         'horario': horario
     })
+
 
 # Função para cancelar agendamento no Firestore
 # Função para cancelar agendamento no Firestore
@@ -111,7 +110,7 @@ def verificar_disponibilidade(data, horario, barbeiro=None):
     if not db:
         st.error("Firestore não inicializado.")
         return False
-    chave_agendamento = f"{data}_{horario}"
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"
     if barbeiro:
         chave_agendamento += f"_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
