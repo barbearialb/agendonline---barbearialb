@@ -206,6 +206,7 @@ def buscar_agendamentos_por_data(data):
         return {}
     
 def exibir_disponibilidade(data, horarios, barbeiros):
+    print("Função exibir_disponibilidade foi chamada!") # Adicione esta linha
     """Exibe a disponibilidade dos barbeiros para uma data específica em uma tabela.
 
     Args:
