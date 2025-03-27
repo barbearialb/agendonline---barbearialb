@@ -204,6 +204,7 @@ def buscar_agendamentos_por_data(data):
     except Exception as e:
         st.error(f"Erro ao buscar agendamentos: {e}")
         return {}
+    
 def exibir_disponibilidade(data, horarios, barbeiros):
     """Exibe a disponibilidade dos barbeiros para uma data específica em uma tabela.
 
@@ -266,9 +267,6 @@ if dia_da_semana < 5:  # Segunda a sexta-feira
                 horarios.append(f"{h:02d}:{m:02d}")
 else:  # Sábado e domingo
     horarios = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
-# Buscar agendamentos para a data selecionada
-agendamentos_do_dia = buscar_agendamentos_por_data(data)
-
 # Buscar agendamentos para a data selecionada
 agendamentos_do_dia = buscar_agendamentos_por_data(data)
 
