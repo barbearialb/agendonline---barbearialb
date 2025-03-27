@@ -218,36 +218,37 @@ if st.button("Confirmar Agendamento"):
                     # Seleciona um barbeiro aleatoriamente que esteja disponível
                     barbeiros_disponiveis = [b for b in barbeiros if verificar_disponibilidade(data, horario, b)]
                     if barbeiros_disponiveis:
-                        barbeiro_para_agendar = random.choice(barbeiros_disponiveis)
+                        barbeiro = random.choice(barbeiros_disponiveis)
                         if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
-                            if verificar_disponibilidade_horario_seguinte(data, horario, barbeiro_para_agendar):
+                            if verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
                                 resumo = f"""
                                 Nome: {nome}
                                 Telefone: {telefone}
                                 Data: {data}
                                 Horário: {horario}
-                                Barbeiro: {barbeiro_para_agendar}
+                                Barbeiro: {barbeiro}
                                 Serviços: {', '.join(servicos_selecionados)}
                                 """
-                                salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro_para_agendar)
+                                salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro)
                                 # Bloquear o horário seguinte para o barbeiro selecionado
                                 horario_seguinte = (datetime.strptime(horario, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-                                salvar_agendamento(data, horario_seguinte, "BLOQUEADO", "BLOQUEADO", ["BLOQUEADO"], barbeiro_para_agendar)
+                                salvar_agendamento(data, horario_seguinte, "BLOQUEADO", "BLOQUEADO", ["BLOQUEADO"], barbeiro)
                                 enviar_email("Agendamento Confirmado", resumo)
                                 st.success("Agendamento confirmado com sucesso! Horário seguinte bloqueado.")
                                 st.info("Resumo do agendamento:\n" + resumo)
                             else:
-                                st.error("O horário seguinte já está ocupado. Por favor, escolha outro horário.")
+                                horario_seguinte = (datetime.strptime(horario, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                                st.error(f"O barbeiro {barbeiro} não poderá atender para corte e barba pois no horário seguinte ({horario_seguinte}) ele já está ocupado. Por favor, verifique outro barbeiro ou horário.")
                         else:
                             resumo = f"""
                             Nome: {nome}
                             Telefone: {telefone}
                             Data: {data}
                             Horário: {horario}
-                            Barbeiro: {barbeiro_para_agendar}
+                            Barbeiro: {barbeiro}
                             Serviços: {', '.join(servicos_selecionados)}
                             """
-                            salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro_para_agendar)
+                            salvar_agendamento(data, horario, nome, telefone, servicos_selecionados, barbeiro)
                             enviar_email("Agendamento Confirmado", resumo)
                             st.success("Agendamento confirmado com sucesso!")
                             st.info("Resumo do agendamento:\n" + resumo)
@@ -273,7 +274,8 @@ if st.button("Confirmar Agendamento"):
                             st.success("Agendamento confirmado com sucesso! Horário seguinte bloqueado.")
                             st.info("Resumo do agendamento:\n" + resumo)
                         else:
-                            st.error("O horário seguinte já está ocupado. Por favor, escolha outro horário.")
+                            horario_seguinte = (datetime.strptime(horario, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                            st.error(f"O barbeiro {barbeiro} não poderá atender para corte e barba pois no horário seguinte ({horario_seguinte}) ele já está ocupado. Por favor, verifique outro barbeiro ou horário.")
                     else:
                         resumo = f"""
                         Nome: {nome}
