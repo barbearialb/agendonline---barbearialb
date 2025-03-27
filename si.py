@@ -204,7 +204,6 @@ def buscar_agendamentos_por_data(data):
     except Exception as e:
         st.error(f"Erro ao buscar agendamentos: {e}")
         return {}
-    
 def exibir_disponibilidade(data, horarios, barbeiros):
     """Exibe a disponibilidade dos barbeiros para uma data específica em uma tabela.
 
@@ -214,13 +213,23 @@ def exibir_disponibilidade(data, horarios, barbeiros):
         barbeiros (list): Uma lista de nomes dos barbeiros.
     """
     agendamentos_do_dia = buscar_agendamentos_por_data(data)
+    print(f"Agendamentos do dia ({data}): {agendamentos_do_dia}") # Nova linha de print
+
     disponibilidade_data = {horario: {barbeiro: "Disponível" for barbeiro in barbeiros} for horario in horarios}
+    print(f"Disponibilidade inicial: {disponibilidade_data}") # Nova linha de print
 
     for agendamento_id, dados in agendamentos_do_dia.items():
+        print(f"Dados do agendamento encontrado: {dados}") # Já tínhamos essa linha
         barbeiro_agendado = dados.get('barbeiro')
         horario_agendado = dados.get('horario')
+        print(f"Barbeiro agendado: {barbeiro_agendado}, Horário agendado: {horario_agendado}") # Nova linha de print
         if horario_agendado in disponibilidade_data and barbeiro_agendado in disponibilidade_data[horario_agendado]:
+            print(f"Marcando {barbeiro_agendado} às {horario_agendado} como Ocupado.") # Nova linha de print
             disponibilidade_data[horario_agendado][barbeiro_agendado] = "Ocupado"
+        else:
+            print(f"Horário {horario_agendado} ou barbeiro {barbeiro_agendado} não encontrados na estrutura de disponibilidade.") # Nova linha de print
+
+    print(f"Disponibilidade final: {disponibilidade_data}") # Nova linha de print
 
     df_disponibilidade = pd.DataFrame.from_dict(disponibilidade_data, orient='index', columns=barbeiros)
     df_disponibilidade.index.name = "Horário"
@@ -235,7 +244,8 @@ def exibir_disponibilidade(data, horarios, barbeiros):
 
     df_estilizado = df_disponibilidade.style.applymap(cor_status)
     st.subheader("Disponibilidade dos Barbeiros")
-    st.dataframe(df_estilizado)    
+    st.dataframe(df_estilizado)
+  
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
