@@ -103,20 +103,32 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
         st.error(f"Erro inesperado ao salvar agendamento: {e}")
 
 # Função para cancelar agendamento no Firestore
-# Função para cancelar agendamento no Firestore
-def cancelar_agendamento(data, horario, telefone):
-    chave_agendamento = f"{data}_{horario}" # Remove o barbeiro da chave
+def cancelar_agendamento(data, horario, telefone, barbeiro):
+    chave_agendamento = f"{data}_{horario}_{barbeiro}" # Incluímos o barbeiro na chave
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
         if doc.exists and doc.to_dict()['telefone'] == telefone:
+            agendamento_data = doc.to_dict()
             agendamento_ref.delete()
-            return doc.to_dict()  # Retorna os dados do agendamento cancelado
+            return agendamento_data # Retorna os dados completos do agendamento cancelado
         else:
             return None
     except Exception as e:
         st.error(f"Erro ao acessar o Firestore: {e}")
         return None
+
+# Nova função para desbloquear o horário seguinte
+def desbloquear_horario(data, horario, barbeiro):
+    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
+    agendamento_ref = db.collection('agendamentos').document(chave_bloqueio)
+    try:
+        doc = agendamento_ref.get()
+        if doc.exists and doc.to_dict()['nome'] == "BLOQUEADO":
+            agendamento_ref.delete()
+            print(f"Horário {horario} do barbeiro {barbeiro} na data {data} desbloqueado.")
+    except Exception as e:
+        st.error(f"Erro ao desbloquear horário: {e}")
 
 # Função para verificar disponibilidade do horário no Firebase
 def verificar_disponibilidade(data, horario, barbeiro=None):
@@ -282,11 +294,13 @@ if st.button("Confirmar Agendamento"):
 # Aba de Cancelamento
 st.subheader("Cancelar Agendamento")
 telefone_cancelar = st.text_input("Telefone para Cancelamento")
+data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today()).strftime('%d/%m/%Y')
 horario_cancelar = st.selectbox("Horário do Agendamento", horarios)
+barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros) # Adicionando a seleção do barbeiro
 
 if st.button("Cancelar Agendamento"):
     with st.spinner("Processando cancelamento..."):
-        cancelado = cancelar_agendamento(data, horario_cancelar, telefone_cancelar)
+        cancelado = cancelar_agendamento(data_cancelar, horario_cancelar, telefone_cancelar, barbeiro_cancelar)
         if cancelado:
             resumo_cancelamento = f"""
             Nome: {cancelado['nome']}
@@ -299,6 +313,10 @@ if st.button("Cancelar Agendamento"):
             enviar_email("Agendamento Cancelado", resumo_cancelamento)
             st.success("Agendamento cancelado com sucesso!")
             st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
+            # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
+            if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
+                horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
+                st.info("O horário seguinte foi desbloqueado.")
         else:
-            st.error("Não há agendamento para o telefone informado nesse horário.")
-            
+            st.error(f"Não há agendamento para o telefone informado nesse horário e com o barbeiro selecionado.")
