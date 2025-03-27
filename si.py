@@ -77,16 +77,30 @@ def enviar_email(assunto, mensagem):
         st.error(f"Erro ao enviar e-mail: {e}")
 
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
-    chave_agendamento = f"{data}_{horario}_{barbeiro}"  # Inclui o barbeiro na chave
-    db.collection('agendamentos').document(chave_agendamento).set({
-        'nome': nome,
-        'telefone': telefone,
-        'servicos': servicos,
-        'barbeiro': barbeiro,
-        'data': data,
-        'horario': horario
-    })
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"
+    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
 
+    @firestore.transactional
+    def atualizar_agendamento(transaction):
+        doc = agendamento_ref.get(transaction=transaction)
+        if doc.exists:
+            raise ValueError("Horário já ocupado.")
+        transaction.set(agendamento_ref, {
+            'nome': nome,
+            'telefone': telefone,
+            'servicos': servicos,
+            'barbeiro': barbeiro,
+            'data': data,
+            'horario': horario
+        })
+
+    transaction = db.transaction()
+    try:
+        atualizar_agendamento(transaction)
+    except ValueError as e:
+        st.error(f"Erro ao salvar agendamento: {e}")
+    except Exception as e:
+        st.error(f"Erro inesperado ao salvar agendamento: {e}")
 
 # Função para cancelar agendamento no Firestore
 # Função para cancelar agendamento no Firestore
@@ -105,14 +119,11 @@ def cancelar_agendamento(data, horario, telefone):
         return None
 
 # Função para verificar disponibilidade do horário no Firebase
-@retry.Retry()
 def verificar_disponibilidade(data, horario, barbeiro=None):
     if not db:
         st.error("Firestore não inicializado.")
         return False
-    chave_agendamento = f"{data}_{horario}_{barbeiro}"
-    if barbeiro:
-        chave_agendamento += f"_{barbeiro}"
+    chave_agendamento = f"{data}_{horario}_{barbeiro}" if barbeiro else f"{data}_{horario}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
@@ -191,8 +202,10 @@ if st.button("Confirmar Agendamento"):
             if not verificar_disponibilidade(data, horario, barbeiros[0]) and not verificar_disponibilidade(data, horario, barbeiros[1]):
                 st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
             else:
-                barbeiro = random.choice(barbeiros)
-                if verificar_disponibilidade(data, horario, barbeiro):
+                # Seleciona um barbeiro aleatoriamente que esteja disponível
+                barbeiros_disponiveis = [b for b in barbeiros if verificar_disponibilidade(data, horario, b)]
+                if barbeiros_disponiveis:
+                    barbeiro = random.choice(barbeiros_disponiveis)
                     if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                         if verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
                             resumo = f"""
@@ -226,7 +239,7 @@ if st.button("Confirmar Agendamento"):
                         st.success("Agendamento confirmado com sucesso!")
                         st.info("Resumo do agendamento:\n" + resumo)
                 else:
-                    st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário.")
+                    st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
         else:
             if verificar_disponibilidade(data, horario, barbeiro):
                 if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
