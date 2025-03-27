@@ -272,6 +272,7 @@ else:  # Sábado e domingo
 agendamentos_do_dia = buscar_agendamentos_por_data(data)
 
 # **Chamada para a função que exibe a disponibilidade**
+print(f"Data antes da função: {data}") # Adicione esta linha
 exibir_disponibilidade(data, horarios, barbeiros)
 
 horario = st.selectbox("Horário", horarios)
