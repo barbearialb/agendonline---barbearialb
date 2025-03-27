@@ -259,6 +259,7 @@ st.subheader("Agendar Horário")
 nome = st.text_input("Nome")
 telefone = st.text_input("Telefone")
 data = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
+print("Valor de 'data' após o input:", data) # Adicione esta linha
 dia_da_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
 if dia_da_semana < 5:  # Segunda a sexta-feira
     horarios = []
