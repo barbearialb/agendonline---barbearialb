@@ -202,7 +202,7 @@ if st.button("Confirmar Agendamento"):
                     st.error("Horário de almoço. Por favor, escolha outro horário.")
                 else:
                     with st.spinner("Verificando disponibilidade..."):
-                        if verificar_disponibilidade(data, horario):
+                        if verificar_disponibilidade(data, horario, barbeiro):
                             if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                                 if verificar_disponibilidade_horario_seguinte(data, horario):
                                     resumo = f"""
