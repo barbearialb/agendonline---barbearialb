@@ -106,12 +106,13 @@ def cancelar_agendamento(data, horario, telefone):
         return None
 
 # Função para verificar disponibilidade do horário no Firebase
+# Função para verificar disponibilidade do horário no Firebase
 @retry.Retry()
-def verificar_disponibilidade(data, horario):  # Remove o parâmetro barbeiro
+def verificar_disponibilidade(data, horario, barbeiro):  # Adiciona o parâmetro barbeiro
     if not db:
         st.error("Firestore não inicializado.")
         return False
-    chave_agendamento = f"{data}_{horario}"  # Remove o barbeiro da chave
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"  # Inclui o barbeiro na chave
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
@@ -186,9 +187,9 @@ for servico, preco in servicos_com_preco.items():
 if st.button("Confirmar Agendamento"):
     if nome and telefone and servicos_selecionados:
         if "Sem preferência" in barbeiro:
-            barbeiro_bloqueado = random.choice(barbeiros)  # Seleciona um barbeiro aleatório para bloquear
-            bloquear_horario(data, horario, barbeiro_bloqueado)  # Bloqueia o horário para o barbeiro selecionado
-            barbeiro = random.choice(barbeiros) # Seleciona um barbeiro aleatório para o agendamento
+            barbeiro = random.choice(barbeiros)
+            if verificar_disponibilidade(data, horario, barbeiro):  # Verifica a disponibilidade para o barbeiro selecionado
+                bloquear_horario(data, horario, barbeiro)
         if len(servicos_selecionados) > 2:
             st.error("Você pode agendar no máximo 2 serviços, sendo o segundo sempre a barba.")
         elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
