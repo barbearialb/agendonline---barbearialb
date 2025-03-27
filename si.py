@@ -275,7 +275,7 @@ if st.button("Confirmar Agendamento"):
                     st.success("Agendamento confirmado com sucesso!")
                     st.info("Resumo do agendamento:\n" + resumo)
             else:
-                st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário.")
+                st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário ou veja outro barbeiro.")
     else:
         st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
 
