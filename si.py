@@ -8,6 +8,7 @@ import json
 import google.api_core.exceptions
 import google.api_core.retry as retry
 import random
+import pandas as pd
 
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -204,6 +205,38 @@ def buscar_agendamentos_por_data(data):
         st.error(f"Erro ao buscar agendamentos: {e}")
         return {}
     
+def exibir_disponibilidade(data, horarios, barbeiros):
+    """Exibe a disponibilidade dos barbeiros para uma data específica em uma tabela.
+
+    Args:
+        data (str): A data no formato 'dd/mm/YYYY'.
+        horarios (list): Uma lista de horários disponíveis.
+        barbeiros (list): Uma lista de nomes dos barbeiros.
+    """
+    agendamentos_do_dia = buscar_agendamentos_por_data(data)
+    disponibilidade_data = {horario: {barbeiro: "Disponível" for barbeiro in barbeiros} for horario in horarios}
+
+    for agendamento_id, dados in agendamentos_do_dia.items():
+        barbeiro_agendado = dados.get('barbeiro')
+        horario_agendado = dados.get('horario')
+        if horario_agendado in disponibilidade_data and barbeiro_agendado in disponibilidade_data[horario_agendado]:
+            disponibilidade_data[horario_agendado][barbeiro_agendado] = "Ocupado"
+
+    df_disponibilidade = pd.DataFrame.from_dict(disponibilidade_data, orient='index', columns=barbeiros)
+    df_disponibilidade.index.name = "Horário"
+
+    # Função para aplicar estilo condicional
+    def cor_status(status):
+        if status == "Ocupado":
+            return 'background-color: red; color: white'
+        elif status == "Disponível":
+            return 'background-color: green; color: white'
+        return ''
+
+    df_estilizado = df_disponibilidade.style.applymap(cor_status)
+    st.subheader("Disponibilidade dos Barbeiros")
+    st.dataframe(df_estilizado)    
+
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
@@ -229,26 +262,9 @@ agendamentos_do_dia = buscar_agendamentos_por_data(data)
 # Buscar agendamentos para a data selecionada
 agendamentos_do_dia = buscar_agendamentos_por_data(data)
 
-# Criar uma estrutura para armazenar a disponibilidade
-disponibilidade = {barbeiro: {horario: "Disponível" for horario in horarios} for barbeiro in barbeiros}
+# **Chamada para a função que exibe a disponibilidade**
+exibir_disponibilidade(data, horarios, barbeiros)
 
-# Marcar os horários ocupados na estrutura de disponibilidade
-for agendamento_id, dados in agendamentos_do_dia.items():
-    barbeiro_agendado = dados.get('barbeiro')
-    horario_agendado = dados.get('horario')
-    if barbeiro_agendado in disponibilidade and horario_agendado in disponibilidade[barbeiro_agendado]:
-        disponibilidade[barbeiro_agendado][horario_agendado] = "Ocupado"
-
-# Visualizar a disponibilidade
-st.subheader("Disponibilidade dos Barbeiros")
-for barbeiro, horarios_barbeiro in disponibilidade.items():
-    st.write(f"**{barbeiro}**")
-    cols = st.columns(len(horarios))
-    for i, horario in enumerate(horarios):
-        status = horarios_barbeiro[horario]
-        cor = "green" if status == "Disponível" else "red"
-        cols[i].markdown(f'<div style="background-color:{cor}; color:white; padding:5px; border-radius:3px; text-align:center;">{horario}</div>', unsafe_allow_html=True)
-           
 horario = st.selectbox("Horário", horarios)
 barbeiro = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
