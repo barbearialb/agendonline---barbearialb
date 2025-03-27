@@ -77,8 +77,9 @@ def enviar_email(assunto, mensagem):
         st.error(f"Erro ao enviar e-mail: {e}")
 
 # Função para salvar agendamento no Firestore
+# Função para salvar agendamento no Firestore
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
-    chave_agendamento = f"{data}_{horario}"
+    chave_agendamento = f"{data}_{horario}" # Remove o barbeiro da chave
     db.collection('agendamentos').document(chave_agendamento).set({
         'nome': nome,
         'telefone': telefone,
@@ -89,8 +90,9 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     })
 
 # Função para cancelar agendamento no Firestore
+# Função para cancelar agendamento no Firestore
 def cancelar_agendamento(data, horario, telefone):
-    chave_agendamento = f"{data}_{horario}"
+    chave_agendamento = f"{data}_{horario}" # Remove o barbeiro da chave
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
@@ -105,11 +107,11 @@ def cancelar_agendamento(data, horario, telefone):
 
 # Função para verificar disponibilidade do horário no Firebase
 @retry.Retry()
-def verificar_disponibilidade(data, horario):
+def verificar_disponibilidade(data, horario):  # Remove o parâmetro barbeiro
     if not db:
         st.error("Firestore não inicializado.")
         return False
-    chave_agendamento = f"{data}_{horario}"
+    chave_agendamento = f"{data}_{horario}"  # Remove o barbeiro da chave
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
@@ -139,7 +141,18 @@ def verificar_disponibilidade_horario_seguinte(data, horario):
     except Exception as e:
         st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
         return False
-
+    
+# Função para bloquear horário para um barbeiro específico
+def bloquear_horario(data, horario, barbeiro):
+    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
+    db.collection('agendamentos').document(chave_bloqueio).set({
+        'nome': "BLOQUEADO",
+        'telefone': "BLOQUEADO",
+        'servicos': ["BLOQUEADO"],
+        'barbeiro': barbeiro,
+        'data': data,
+        'horario': horario
+    })
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
@@ -150,6 +163,15 @@ st.subheader("Agendar Horário")
 nome = st.text_input("Nome")
 telefone = st.text_input("Telefone")
 data = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
+dia_da_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
+if dia_da_semana < 5:  # Segunda a sexta-feira
+    horarios = []
+    for h in range(8, 20):
+        for m in (0, 30):
+            if h < 12 or h >= 14:  # Bloquear horários de almoço
+                horarios.append(f"{h:02d}:{m:02d}")
+else:  # Sábado e domingo
+    horarios = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 horario = st.selectbox("Horário", horarios)
 barbeiro = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
@@ -164,7 +186,9 @@ for servico, preco in servicos_com_preco.items():
 if st.button("Confirmar Agendamento"):
     if nome and telefone and servicos_selecionados:
         if "Sem preferência" in barbeiro:
-            barbeiro = random.choice(barbeiros)
+            barbeiro_bloqueado = random.choice(barbeiros)  # Seleciona um barbeiro aleatório para bloquear
+            bloquear_horario(data, horario, barbeiro_bloqueado)  # Bloqueia o horário para o barbeiro selecionado
+            barbeiro = random.choice(barbeiros) # Seleciona um barbeiro aleatório para o agendamento
         if len(servicos_selecionados) > 2:
             st.error("Você pode agendar no máximo 2 serviços, sendo o segundo sempre a barba.")
         elif len(servicos_selecionados) == 2 and "Barba" not in servicos_selecionados:
