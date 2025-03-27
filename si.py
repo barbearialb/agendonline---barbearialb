@@ -181,58 +181,7 @@ def bloquear_horario(data, horario, barbeiro):
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
 st.image("https://github.com/barbearialb/sistemalb/blob/main/icone.png?raw=true", use_container_width=True)
-# Visualização de Disponibilidade
-st.subheader("Visualização de Disponibilidade")
-data_disponibilidade = st.date_input("Selecione a data para visualizar a disponibilidade", min_value=datetime.today()).strftime('%d/%m/%Y')
 
-def buscar_agendamentos_por_data(data):
-    if not db:
-        st.error("Firestore não inicializado.")
-        return []
-    agendamentos = []
-    try:
-        # Consulta os agendamentos onde a data corresponde
-        agendamentos_ref = db.collection('agendamentos')
-        query = agendamentos_ref.where('data', '==', data).stream()
-        for doc in query:
-            agendamento = doc.to_dict()
-            agendamentos.append(agendamento)
-        return agendamentos
-    except Exception as e:
-        st.error(f"Erro ao buscar agendamentos: {e}")
-        return []
-
-agendamentos_na_data = buscar_agendamentos_por_data(data_disponibilidade)
-
-# Agora vamos processar e exibir a disponibilidade
-disponibilidade = {barbeiro: {horario: "Livre" for horario in horarios} for barbeiro in barbeiros}
-
-for agendamento in agendamentos_na_data:
-    barbeiro_agendado = agendamento.get('barbeiro')
-    horario_agendado = agendamento.get('horario')
-    if barbeiro_agendado in disponibilidade and horario_agendado in disponibilidade[barbeiro_agendado]:
-        disponibilidade[barbeiro_agendado][horario_agendado] = "Ocupado"
-        # Se o agendamento inclui barba, o horário seguinte também está ocupado
-        if "Barba" in agendamento.get('servicos', []) and any(corte in agendamento.get('servicos', []) for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
-            horario_seguinte = (datetime.strptime(horario_agendado, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-            if horario_seguinte in disponibilidade[barbeiro_agendado]:
-                disponibilidade[barbeiro_agendado][horario_seguinte] = "Ocupado (Barba)"
-
-st.subheader(f"Disponibilidade para {data_disponibilidade}")
-
-# Exibir a disponibilidade em uma tabela
-import pandas as pd
-
-# Criar um DataFrame para facilitar a visualização
-index = pd.Index(horarios, name="Horário")
-df_disponibilidade = pd.DataFrame(index=index, columns=barbeiros)
-
-for barbeiro, horarios_disponiveis in disponibilidade.items():
-    for horario, status in horarios_disponiveis.items():
-        if horario in df_disponibilidade.index and barbeiro in df_disponibilidade.columns:
-            df_disponibilidade.loc[horario, barbeiro] = status
-
-st.dataframe(df_disponibilidade)
 # Aba de Agendamento
 st.subheader("Agendar Horário")
 nome = st.text_input("Nome")
@@ -240,15 +189,38 @@ telefone = st.text_input("Telefone")
 data = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
 dia_da_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
 if dia_da_semana < 5:  # Segunda a sexta-feira
-    horarios = []
+    horarios_base = []
     for h in range(8, 20):
         for m in (0, 30):
             if h < 12 or h >= 14:  # Bloquear horários de almoço
-                horarios.append(f"{h:02d}:{m:02d}")
+                horarios_base.append(f"{h:02d}:{m:02d}")
 else:  # Sábado e domingo
-    horarios = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
-horario = st.selectbox("Horário", horarios)
+    horarios_base = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 barbeiro = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
+
+def buscar_horarios_agendados(data, barbeiro):
+    if not db:
+        st.error("Firestore não inicializado.")
+        return []
+    horarios_agendados = []
+    try:
+        agendamentos_ref = db.collection('agendamentos')
+        query = agendamentos_ref.where('data', '==', data).where('barbeiro', '==', barbeiro).stream()
+        for doc in query:
+            agendamento = doc.to_dict()
+            horarios_agendados.append(agendamento['horario'])
+        return horarios_agendados
+    except Exception as e:
+        st.error(f"Erro ao buscar horários agendados: {e}")
+        return []
+
+horarios_disponiveis = horarios_base[:]  # Cria uma cópia da lista base
+
+if barbeiro != "Sem preferência":
+    horarios_ocupados = buscar_horarios_agendados(data, barbeiro)
+    horarios_disponiveis = [h for h in horarios_base if h not in horarios_ocupados]
+
+horario = st.selectbox("Horário", horarios_disponiveis)
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
 
 # Exibir os preços com o símbolo R$
@@ -374,4 +346,3 @@ if st.button("Cancelar Agendamento"):
                 st.info("O horário seguinte foi desbloqueado.")
         else:
             st.error(f"Não há agendamento para o telefone informado nesse horário e com o barbeiro selecionado.")
-
