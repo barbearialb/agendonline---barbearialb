@@ -222,7 +222,17 @@ horarios_disponiveis = horarios_base[:]  # Cria uma cópia da lista base
 if barbeiro != "Sem preferência":
     horarios_ocupados = buscar_horarios_agendados(data, barbeiro)
     st.write(f"Horários ocupados: {horarios_ocupados}") # Adicione esta linha
-    horarios_disponiveis = [h for h in horarios_base if h not in horarios_ocupados]
+    st.write(f"Conteúdo de horarios_base: {horarios_base}") # Adicione esta linha
+    st.write(f"Conteúdo de horarios_ocupados: {horarios_ocupados}") # Adicione esta linha
+    horarios_disponiveis = []
+    for h_base in horarios_base:
+        encontrado = False
+        for h_ocupado in horarios_ocupados:
+            if h_base == h_ocupado:
+                encontrado = True
+                break
+        if not encontrado:
+            horarios_disponiveis.append(h_base)
     st.write(f"Horários disponíveis: {horarios_disponiveis}") # Adicione esta linha
 
 horario = st.selectbox("Horário", horarios_disponiveis)
