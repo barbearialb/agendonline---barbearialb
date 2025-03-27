@@ -177,6 +177,33 @@ def bloquear_horario(data, horario, barbeiro):
         'data': data,
         'horario': horario
     })
+
+def buscar_agendamentos_por_data(data):
+    """Busca todos os agendamentos para uma data específica no Firestore.
+
+    Args:
+        data (str): A data no formato 'dd/mm/YYYY'.
+
+    Returns:
+        dict: Um dicionário onde as chaves são as chaves dos agendamentos
+              e os valores são os dados dos agendamentos. Retorna um dicionário vazio
+              se não houver agendamentos para a data.
+    """
+    if not db:
+        st.error("Firestore não inicializado.")
+        return {}
+    agendamentos = {}
+    try:
+        # Converter a data para o formato que está no Firestore (se necessário)
+        # Assumindo que a data no Firestore também está como 'dd/mm/YYYY'
+        query = db.collection('agendamentos').where('data', '==', data).get()
+        for doc in query:
+            agendamentos[doc.id] = doc.to_dict()
+        return agendamentos
+    except Exception as e:
+        st.error(f"Erro ao buscar agendamentos: {e}")
+        return {}
+    
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
@@ -196,6 +223,32 @@ if dia_da_semana < 5:  # Segunda a sexta-feira
                 horarios.append(f"{h:02d}:{m:02d}")
 else:  # Sábado e domingo
     horarios = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+# Buscar agendamentos para a data selecionada
+agendamentos_do_dia = buscar_agendamentos_por_data(data)
+
+# Buscar agendamentos para a data selecionada
+agendamentos_do_dia = buscar_agendamentos_por_data(data)
+
+# Criar uma estrutura para armazenar a disponibilidade
+disponibilidade = {barbeiro: {horario: "Disponível" for horario in horarios} for barbeiro in barbeiros}
+
+# Marcar os horários ocupados na estrutura de disponibilidade
+for agendamento_id, dados in agendamentos_do_dia.items():
+    barbeiro_agendado = dados.get('barbeiro')
+    horario_agendado = dados.get('horario')
+    if barbeiro_agendado in disponibilidade and horario_agendado in disponibilidade[barbeiro_agendado]:
+        disponibilidade[barbeiro_agendado][horario_agendado] = "Ocupado"
+
+# Visualizar a disponibilidade
+st.subheader("Disponibilidade dos Barbeiros")
+for barbeiro, horarios_barbeiro in disponibilidade.items():
+    st.write(f"**{barbeiro}**")
+    cols = st.columns(len(horarios))
+    for i, horario in enumerate(horarios):
+        status = horarios_barbeiro[horario]
+        cor = "green" if status == "Disponível" else "red"
+        cols[i].markdown(f'<div style="background-color:{cor}; color:white; padding:5px; border-radius:3px; text-align:center;">{horario}</div>', unsafe_allow_html=True)
+           
 horario = st.selectbox("Horário", horarios)
 barbeiro = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
