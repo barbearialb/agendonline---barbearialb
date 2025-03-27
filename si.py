@@ -127,12 +127,12 @@ def verificar_disponibilidade(data, horario, barbeiro=None):
 
 # Função para verificar disponibilidade do horário e do horário seguinte
 @retry.Retry()
-def verificar_disponibilidade_horario_seguinte(data, horario):
+def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     if not db:
         st.error("Firestore não inicializado.")
         return False
     horario_seguinte = (datetime.strptime(horario, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-    chave_agendamento_seguinte = f"{data}_{horario_seguinte}"
+    chave_agendamento_seguinte = f"{data}_{horario_seguinte}_{barbeiro}"
     agendamento_ref_seguinte = db.collection('agendamentos').document(chave_agendamento_seguinte)
     try:
         doc_seguinte = agendamento_ref_seguinte.get()
@@ -184,6 +184,7 @@ st.write("Preços dos serviços:")
 for servico, preco in servicos_com_preco.items():
     st.write(f"{servico}: {preco}")
 
+# Validação dos serviços selecionados
 # Validação dos serviços selecionados
 if st.button("Confirmar Agendamento"):
     if nome and telefone and servicos_selecionados:
