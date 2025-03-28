@@ -237,7 +237,7 @@ with st.form("agendar_form"):
 
     html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
     for barbeiro in barbeiros:
-        html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #f0f0f0;">{barbeiro}</th>'
+         html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
     html_table += '</tr>'
 
     for horario in horarios_base:
