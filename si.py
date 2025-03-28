@@ -217,8 +217,15 @@ st.image("https://github.com/barbearialb/sistemalb/blob/main/icone.png?raw=true"
 if 'data_agendamento' not in st.session_state:
     st.session_state.data_agendamento = datetime.today().strftime('%d/%m/%Y')
 
-# Widget de seleção de data FORA do formulário
-data_agendamento_obj = st.date_input("Data para visualizar disponibilidade", min_value=datetime.today(), key="data_input_widget", on_change=lambda: [verificar_disponibilidade.clear(), st.experimental_rerun()])
+if 'date_changed' not in st.session_state:
+    st.session_state['date_changed'] = False
+
+def handle_date_change():
+    verificar_disponibilidade.clear()
+    st.session_state['date_changed'] = not st.session_state['date_changed']
+    st.experimental_rerun()
+
+data_agendamento_obj = st.date_input("Data para visualizar disponibilidade", min_value=datetime.today(), key="data_input_widget", on_change=handle_date_change)
 data_para_tabela = st.session_state.get("data_input_widget", datetime.today()).strftime('%d/%m/%Y')
 
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
