@@ -204,15 +204,14 @@ def buscar_horarios_agendados(data, barbeiro):
         return []
     horarios_agendados = []
     try:
-        st.write(f"Buscando agendamentos para a data: {data}")
-        st.write(f"Valor da variável data na consulta: {data}") # Adicione esta linha
+        st.write(f"Buscando agendamentos para o barbeiro: {barbeiro}") # Modificado
         agendamentos_ref = db.collection('agendamentos')
-        query = agendamentos_ref.where('data', '==', data).stream()
+        query = agendamentos_ref.where('barbeiro', '==', barbeiro).stream() # Removido filtro de data
         for doc in query:
             agendamento = doc.to_dict()
-            st.write(f"Agendamento encontrado: {agendamento}")
+            st.write(f"Agendamento encontrado (sem filtro de data): {agendamento}")
             horarios_agendados.append(agendamento['horario'])
-        st.write(f"Horários agendados encontrados: {horarios_agendados}")
+        st.write(f"Horários agendados encontrados (sem filtro de data): {horarios_agendados}")
         return horarios_agendados
     except Exception as e:
         st.error(f"Erro ao buscar horários agendados: {e}")
