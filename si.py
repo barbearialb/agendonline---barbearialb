@@ -215,30 +215,38 @@ st.header("Faça seu agendamento ou cancele")
 st.image("https://github.com/barbearialb/sistemalb/blob/main/icone.png?raw=true", use_container_width=True)
 
 # Aba de Agendamento
+if 'data_disponibilidade' not in st.session_state:
+    st.session_state.data_disponibilidade = datetime.today()
+
 with st.form("agendar_form"):
     st.subheader("Agendar Horário")
     nome = st.text_input("Nome")
     telefone = st.text_input("Telefone")
-    data_agendamento = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
+
+    def atualizar_data_disponibilidade():
+        st.session_state.data_disponibilidade = data_agendamento
+
+    data_agendamento = st.date_input("Data", min_value=datetime.today(), on_change=atualizar_data_disponibilidade).strftime('%d/%m/%Y')
+
     dia_da_semana = datetime.strptime(data_agendamento, '%d/%m/%Y').weekday()
-    if dia_da_semana < 5:  # Segunda a sexta-feira
+    if dia_da_semana < 5:
         horarios_base_agendamento = []
         for h in range(8, 20):
             for m in (0, 30):
-                if h < 12 or h >= 14:  # Bloquear horários de almoço
+                if h < 12 or h >= 14:
                     horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
-    else:  # Sábado e domingo
+    else:
         horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
     # Tabela de Disponibilidade (Movida para cá e com estilos)
     st.subheader("Disponibilidade dos Barbeiros")
-    data_disponibilidade = data_agendamento  # Usar a data selecionada para agendamento
+    data_disponibilidade = st.session_state.data_disponibilidade.strftime('%d/%m/%Y') # Usar o valor do session state
 
     html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
     for barbeiro in barbeiros:
-         html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
+        html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
     html_table += '</tr>'
 
     for horario in horarios_base:
@@ -246,8 +254,8 @@ with st.form("agendar_form"):
         for barbeiro in barbeiros:
             disponivel = verificar_disponibilidade(data_disponibilidade, horario, barbeiro)
             status = "Disponível" if disponivel else "Ocupado"
-            bg_color = "forestgreen" if disponivel else "firebrick"  # Cores mais escuras
-            color_text = "white" if disponivel else "white" # Garante que o texto seja legível em fundos escuros
+            bg_color = "forestgreen" if disponivel else "firebrick"
+            color_text = "white" if disponivel else "white"
             html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text};">{status}</td>'
         html_table += '</tr>'
 
