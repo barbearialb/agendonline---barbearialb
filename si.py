@@ -212,13 +212,14 @@ def bloquear_horario(data, horario, barbeiro):
         'horario': horario
     })
 
-def buscar_horarios_agendados(data, barbeiro):
+def buscar_horarios_agendados(data, barbeiros):
     if not db:
         st.error("Firestore não inicializado.")
         return []
     horarios_agendados = []
     for horario in horarios_base:
-        if barbeiro != "Sem preferência":
+        ocupado = False
+        for barbeiro in barbeiros:
             chave_agendamento = f"{data}_{horario}_{barbeiro}"
             chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
             agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
@@ -227,11 +228,14 @@ def buscar_horarios_agendados(data, barbeiro):
                 doc_agendamento = agendamento_ref.get()
                 doc_bloqueio = bloqueio_ref.get()
                 if doc_agendamento.exists or doc_bloqueio.exists:
-                    horarios_agendados.append(horario)
+                    ocupado = True
+                    break  # Se o horário estiver ocupado para um barbeiro, não precisa verificar os outros
             except google.api_core.exceptions.RetryError as e:
                 st.error(f"Erro de conexão com o Firestore: {e}")
             except Exception as e:
                 st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
+        if ocupado:
+            horarios_agendados.append(horario)
     return horarios_agendados
 
 # Interface Streamlit
@@ -296,8 +300,11 @@ with st.form("agendar_form"):
     horarios_disponiveis = horarios_base_agendamento[:]
 
     if barbeiro_selecionado != "Sem preferência":
-        horarios_ocupados = buscar_horarios_agendados(data_agendamento, barbeiro_selecionado)
-        horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
+    horarios_ocupados = buscar_horarios_agendados(data_agendamento, [barbeiro_selecionado])
+    horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
+else:
+    horarios_ocupados = buscar_horarios_agendados(data_agendamento, barbeiros)
+    horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
 
     horario_agendamento = st.selectbox("Horário", horarios_disponiveis)
     servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
