@@ -220,6 +220,27 @@ else:  # Sábado e domingo
 
 barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
+# Tabela de Disponibilidade (Movida para cá)
+st.subheader("Disponibilidade dos Barbeiros")
+data_disponibilidade = data_agendamento  # Usar a data selecionada para agendamento
+
+html_table = "<table><tr><th>Horário</th>"
+for barbeiro in barbeiros:
+    html_table += f"<th>{barbeiro}</th>"
+html_table += "</tr>"
+
+for horario in horarios_base:
+    html_table += f"<tr><td>{horario}</td>"
+    for barbeiro in barbeiros:
+        disponivel = verificar_disponibilidade(data_disponibilidade, horario, barbeiro)
+        status = "Disponível" if disponivel else "Ocupado"
+        color = "green" if disponivel else "red"
+        html_table += f'<td style="color:{color};">{status}</td>'
+    html_table += "</tr>"
+
+html_table += "</table>"
+st.markdown(html_table, unsafe_allow_html=True)
+
 horarios_disponiveis = horarios_base_agendamento[:]  # Cria uma cópia da lista base para agendamento
 
 if barbeiro_selecionado != "Sem preferência":
@@ -234,32 +255,6 @@ servicos_com_preco = {servico: f"R$ {preco}" for servico, preco in servicos.item
 st.write("Preços dos serviços:")
 for servico, preco in servicos_com_preco.items():
     st.write(f"{servico}: {preco}")
-
-# Tabela de Disponibilidade
-st.subheader("Disponibilidade dos Barbeiros")
-data_disponibilidade = data_agendamento  # Usar a data selecionada para agendamento
-
-disponibilidade_data = []
-for horario in horarios_base:
-    horario_status = {"Horário": horario}
-    for barbeiro in barbeiros:
-        disponivel = verificar_disponibilidade(data_disponibilidade, horario, barbeiro)
-        status = "Disponível" if disponivel else "Ocupado"
-        color = "green" if disponivel else "red"
-        horario_status[barbeiro] = f'<span style="color:{color};">{status}</span>'
-    disponibilidade_data.append(horario_status)
-
-df_disponibilidade = pd.DataFrame(disponibilidade_data)
-st.dataframe(df_disponibilidade, column_config={
-    "Lucas Borges": st.column_config.Column(
-        "Lucas Borges",
-        width="medium",
-    ),
-    "Aluizio": st.column_config.Column(
-        "Aluizio",
-        width="medium",
-    ),
-})
 
 if st.button("Confirmar Agendamento"):
     with st.spinner("Processando agendamento..."):
