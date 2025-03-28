@@ -412,25 +412,27 @@ with st.form("cancelar_form"):
     if submitted_cancelar:
         with st.spinner("Processando cancelamento..."):
             cancelado = cancelar_agendamento(data_cancelar, horario_cancelar, telefone_cancelar, barbeiro_cancelar)
-            if cancelado:
-                resumo_cancelamento = f"""
-                Nome: {cancelado['nome']}
-                Telefone: {cancelado['telefone']}
-                Data: {cancelado['data']}
-                Horário: {cancelado['horario']}
-                Barbeiro: {cancelado['barbeiro']}
-                Serviços: {', '.join(cancelado['servicos'])}
-                """
-                enviar_email("Agendamento Cancelado", resumo_cancelamento)
-                verificar_disponibilidade.clear()
-                st.success("Agendamento cancelado com sucesso!")
-                st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
-                # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
-                if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
-                    horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-                     # Adicione estas linhas temporariamente para verificar os valores
-                    desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
-                    st.info("O horário seguinte foi desbloqueado.")
-                time.sleep(5)
-            else:
-                st.error(f"Não há agendamento para o telefone informado nesse horário e com o barbeiro selecionado.")
+
+        if cancelado:
+            resumo_cancelamento = f"""
+            Nome: {cancelado['nome']}
+            Telefone: {cancelado['telefone']}
+            Data: {cancelado['data']}
+            Horário: {cancelado['horario']}
+            Barbeiro: {cancelado['barbeiro']}
+            Serviços: {', '.join(cancelado['servicos'])}
+            """
+            enviar_email("Agendamento Cancelado", resumo_cancelamento)
+            verificar_disponibilidade.clear()
+            st.success("Agendamento cancelado com sucesso!")
+            st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
+            # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
+            if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
+                horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                 # Adicione estas linhas temporariamente para verificar os valores
+                desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
+                st.info("O horário seguinte foi desbloqueado.")
+            time.sleep(5)
+            # Ainda sem o st.rerun() aqui
+        else:
+            st.error(f"Não há agendamento para o telefone informado nesse horário e com o barbeiro selecionado.")
