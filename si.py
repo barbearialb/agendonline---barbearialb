@@ -229,8 +229,10 @@ with st.form("agendar_form"):
     def atualizar_data_disponibilidade():
         st.session_state.data_disponibilidade = data_agendamento
 
-    data_agendamento_obj = st.date_input("Data", min_value=datetime.today(), on_change=atualizar_data_disponibilidade)
+    data_agendamento_obj = st.date_input("Data", min_value=datetime.today(), key="data_input_widget") # Using a key
     data_agendamento = data_agendamento_obj.strftime('%d/%m/%Y')
+    st.session_state.data_agendamento = data_agendamento # Update session state immediately
+
 
     dia_da_semana = data_agendamento_obj.weekday()
     if dia_da_semana < 5:
@@ -397,7 +399,7 @@ if submitted:
                     st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário ou veja outro barbeiro.")
         else:
             st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
-            
+
 # Aba de Cancelamento
 with st.form("cancelar_form"):
     st.subheader("Cancelar Agendamento")
