@@ -296,27 +296,33 @@ with st.form("agendar_form"):
 
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
-    horarios_disponiveis = horarios_base_agendamento[:]
-
-   if barbeiro_selecionado != "Sem preferência":
-    horarios_disponiveis = []
-    for horario in horarios_base_agendamento:
-        if verificar_disponibilidade(data_agendamento, horario, barbeiro_selecionado):
-            horarios_disponiveis.append(horario)
-else:
-    horarios_ocupados = set()
-    for barbeiro in barbeiros:
+    if barbeiro_selecionado != "Sem preferência":
+        horarios_disponiveis = []
         for horario in horarios_base_agendamento:
-            if not verificar_disponibilidade(data_agendamento, horario, barbeiro):
-                horarios_ocupados.add(horario)
-    horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
+            if verificar_disponibilidade(data_agendamento, horario, barbeiro_selecionado):
+                horarios_disponiveis.append(horario)
+    else:
+        horarios_ocupados = set()
+        for barbeiro in barbeiros:
+            for horario in horarios_base_agendamento:
+                if not verificar_disponibilidade(data_agendamento, horario, barbeiro):
+                    horarios_ocupados.add(horario)
+        horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
 
-if horarios_disponiveis:  # Verifica se a lista não está vazia
-    horario_agendamento = st.selectbox("Horário", horarios_disponiveis)
-    # Resto do código...
-else:
-    st.warning("Não há horários disponíveis para o barbeiro selecionado.")
-   
+    if horarios_disponiveis:  # Verifica se a lista não está vazia
+        horario_agendamento = st.selectbox("Horário", horarios_disponiveis)
+        servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
+
+        # Exibir os preços com o símbolo R$
+        servicos_com_preco = {servico: f"R$ {preco}" for servico, preco in servicos.items()}
+        st.write("Preços dos serviços:")
+        for servico, preco in servicos_com_preco.items():
+            st.write(f"{servico}: {preco}")
+
+        submitted = st.form_submit_button("Confirmar Agendamento")
+    else:
+        st.warning("Não há horários disponíveis para o barbeiro selecionado.")
+                        
     
 
     horario_agendamento = st.selectbox("Horário", horarios_disponiveis)
