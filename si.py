@@ -204,19 +204,18 @@ def buscar_horarios_agendados(data, barbeiro):
         return []
     horarios_agendados = []
     try:
-        st.write(f"Buscando agendamentos para a data: {data} e barbeiro: {barbeiro}") # Adicione esta linha
+        st.write(f"Buscando agendamentos para a data: {data}") # Modificado
         agendamentos_ref = db.collection('agendamentos')
-        query = agendamentos_ref.where('data', '==', data).where('barbeiro', '==', barbeiro).stream()
+        query = agendamentos_ref.where('data', '==', data).stream() # Removido filtro de barbeiro
         for doc in query:
             agendamento = doc.to_dict()
-            st.write(f"Agendamento encontrado: {agendamento}") # Adicione esta linha
+            st.write(f"Agendamento encontrado: {agendamento}")
             horarios_agendados.append(agendamento['horario'])
-        st.write(f"Horários agendados encontrados: {horarios_agendados}") # Adicione esta linha
+        st.write(f"Horários agendados encontrados: {horarios_agendados}")
         return horarios_agendados
     except Exception as e:
         st.error(f"Erro ao buscar horários agendados: {e}")
         return []
-
 horarios_disponiveis = horarios_base[:]  # Cria uma cópia da lista base
 
 if barbeiro != "Sem preferência":
