@@ -298,22 +298,27 @@ with st.form("agendar_form"):
 
     horarios_disponiveis = horarios_base_agendamento[:]
 
-   
    if barbeiro_selecionado != "Sem preferência":
     horarios_disponiveis = []
     for horario in horarios_base_agendamento:
         if verificar_disponibilidade(data_agendamento, horario, barbeiro_selecionado):
             horarios_disponiveis.append(horario)
 else:
-    horarios_disponiveis = horarios_base_agendamento[:]  # Começa com todos os horários
-    for horario in horarios_base_agendamento:
-        disponivel_para_todos = True
-        for barbeiro in barbeiros:
+    horarios_ocupados = set()
+    for barbeiro in barbeiros:
+        for horario in horarios_base_agendamento:
             if not verificar_disponibilidade(data_agendamento, horario, barbeiro):
-                disponivel_para_todos = False
-                break
-        if not disponivel_para_todos:
-            horarios_disponiveis.remove(horario)
+                horarios_ocupados.add(horario)
+    horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
+
+if horarios_disponiveis:  # Verifica se a lista não está vazia
+    horario_agendamento = st.selectbox("Horário", horarios_disponiveis)
+    # Resto do código...
+else:
+    st.warning("Não há horários disponíveis para o barbeiro selecionado.")
+   
+    
+
     horario_agendamento = st.selectbox("Horário", horarios_disponiveis)
     servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
 
