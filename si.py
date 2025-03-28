@@ -11,6 +11,20 @@ import random
 import pandas as pd  # Importar a biblioteca pandas
 import time  # Importar a biblioteca time
 
+st.markdown(
+    """
+    <style>
+        table {
+            display: block !important;
+        }
+        div[data-testid="stForm"] {
+            display: block !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
 EMAIL = None
