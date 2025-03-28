@@ -298,8 +298,8 @@ with st.form("agendar_form"):
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
     horarios_disponiveis = horarios_base_agendamento[:]
-
-    if barbeiro_selecionado != "Sem preferência":
+    
+if barbeiro_selecionado != "Sem preferência":
     horarios_ocupados = buscar_horarios_agendados(data_agendamento, [barbeiro_selecionado])
     horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
 else:
