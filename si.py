@@ -77,10 +77,14 @@ def enviar_email(assunto, mensagem):
             server.sendmail(EMAIL, EMAIL, msg.as_string())
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
+from datetime import datetime
 
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+
+    # Converter a string de data para um objeto datetime
+    data_obj = datetime.strptime(data, '%d/%m/%Y').date()
 
     @firestore.transactional
     def atualizar_agendamento(transaction):
@@ -92,7 +96,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
             'telefone': telefone,
             'servicos': servicos,
             'barbeiro': barbeiro,
-            'data': data,
+            'data': data_obj,  # Salvar o objeto datetime no Firestore
             'horario': horario
         })
 
@@ -106,14 +110,16 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
 
 # Função para cancelar agendamento no Firestore
 def cancelar_agendamento(data, horario, telefone, barbeiro):
-    chave_agendamento = f"{data}_{horario}_{barbeiro}" # Incluímos o barbeiro na chave
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
         if doc.exists and doc.to_dict()['telefone'] == telefone:
             agendamento_data = doc.to_dict()
+            # Converter a data de volta para string no formato '%d/%m/%Y'
+            agendamento_data['data'] = agendamento_data['data'].strftime('%d/%m/%Y')
             agendamento_ref.delete()
-            return agendamento_data # Retorna os dados completos do agendamento cancelado
+            return agendamento_data
         else:
             return None
     except Exception as e:
