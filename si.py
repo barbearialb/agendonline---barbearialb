@@ -235,7 +235,7 @@ with st.form("agendar_form"):
     st.subheader("Disponibilidade dos Barbeiros")
     data_disponibilidade = data_agendamento  # Usar a data selecionada para agendamento
 
-    html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #f0f0f0;">Horário</th>'
+    html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
     for barbeiro in barbeiros:
         html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #f0f0f0;">{barbeiro}</th>'
     html_table += '</tr>'
@@ -409,9 +409,6 @@ with st.form("cancelar_form"):
                 if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                     horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
                      # Adicione estas linhas temporariamente para verificar os valores
-                    st.write(f"Data do cancelamento (cancelado['data']): {cancelado['data']}")
-                    st.write(f"Horário seguinte a desbloquear (horario_seguinte): {horario_seguinte}")
-                    st.write(f"Barbeiro do cancelamento (cancelado['barbeiro']): {cancelado['barbeiro']}")
                     desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
                     st.info("O horário seguinte foi desbloqueado.")
                 time.sleep(5)
