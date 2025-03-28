@@ -272,9 +272,8 @@ with st.form("agendar_form"):
 
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
-    horario_agendamento = st.selectbox("Horário", horarios_base_agendamento)
+    horario_agendamento = st.selectbox("Horário", horarios_base_agendamento)  # Mantenha esta linha
 
-    horario_agendamento = st.selectbox("Horário", horarios_base_agendamento)
     servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
 
     # Exibir os preços com o símbolo R$
