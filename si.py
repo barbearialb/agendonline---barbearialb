@@ -122,11 +122,13 @@ def cancelar_agendamento(data, horario, telefone, barbeiro):
 
 # Nova função para desbloquear o horário seguinte
 def desbloquear_horario(data, horario, barbeiro):
-    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
+    ano = data.split('/')[-1]  # Extrai o ano da data (ex: "2025")
+    chave_bloqueio = f"{ano}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_bloqueio)
     try:
         doc = agendamento_ref.get()
         if doc.exists and doc.to_dict()['nome'] == "BLOQUEADO":
+            print(f"Tentando excluir a chave: {chave_bloqueio}")
             agendamento_ref.delete()
             print(f"Horário {horario} do barbeiro {barbeiro} na data {data} desbloqueado.")
     except Exception as e:
