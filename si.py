@@ -228,7 +228,7 @@ with st.form("agendar_form"):
         st.session_state.data_agendamento = data_agendamento_obj.strftime('%d/%m/%Y')
         st.experimental_rerun()
 
-    data_agendamento_obj = st.date_input("Data", min_value=datetime.today(), key="data_input_widget", on_change=on_date_change)
+    data_agendamento_obj = st.date_input("Data", min_value=datetime.today(), key="data_input_widget", on_change=lambda: [setattr(st.session_state, 'data_agendamento', data_agendamento_obj.strftime('%d/%m/%Y')), st.experimental_rerun()])
     data_agendamento = data_agendamento_obj.strftime('%d/%m/%Y')
 
     dia_da_semana = data_agendamento_obj.weekday()
