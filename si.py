@@ -220,25 +220,25 @@ else:  # Sábado e domingo
 
 barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
-# Tabela de Disponibilidade (Movida para cá)
+# Tabela de Disponibilidade (Movida para cá e com estilos)
 st.subheader("Disponibilidade dos Barbeiros")
 data_disponibilidade = data_agendamento  # Usar a data selecionada para agendamento
 
-html_table = "<table><tr><th>Horário</th>"
+html_table = '<table style="font-size: 16px; border-collapse: collapse; width: 100%;"><tr><th style="padding: 8px; border: 1px solid #ddd;">Horário</th>'
 for barbeiro in barbeiros:
-    html_table += f"<th>{barbeiro}</th>"
-html_table += "</tr>"
+    html_table += f'<th style="padding: 8px; border: 1px solid #ddd;">{barbeiro}</th>'
+html_table += '</tr>'
 
 for horario in horarios_base:
-    html_table += f"<tr><td>{horario}</td>"
+    html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
     for barbeiro in barbeiros:
         disponivel = verificar_disponibilidade(data_disponibilidade, horario, barbeiro)
         status = "Disponível" if disponivel else "Ocupado"
-        color = "green" if disponivel else "red"
-        html_table += f'<td style="color:{color};">{status}</td>'
-    html_table += "</tr>"
+        bg_color = "lightgreen" if disponivel else "lightcoral"
+        html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center;">{status}</td>'
+    html_table += '</tr>'
 
-html_table += "</table>"
+html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
 
 horarios_disponiveis = horarios_base_agendamento[:]  # Cria uma cópia da lista base para agendamento
