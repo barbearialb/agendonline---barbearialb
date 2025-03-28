@@ -377,6 +377,10 @@ with st.form("cancelar_form"):
                 # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
                 if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                     horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                     # Adicione estas linhas temporariamente para verificar os valores
+                    st.write(f"Data do cancelamento (cancelado['data']): {cancelado['data']}")
+                    st.write(f"Horário seguinte a desbloquear (horario_seguinte): {horario_seguinte}")
+                    st.write(f"Barbeiro do cancelamento (cancelado['barbeiro']): {cancelado['barbeiro']}")
                     desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
                     st.info("O horário seguinte foi desbloqueado.")
                 time.sleep(5)
