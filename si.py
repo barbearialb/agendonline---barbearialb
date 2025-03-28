@@ -216,23 +216,20 @@ st.image("https://github.com/barbearialb/sistemalb/blob/main/icone.png?raw=true"
 
 # Aba de Agendamento
 # Aba de Agendamento
-if 'data_disponibilidade' not in st.session_state:
-    st.session_state.data_disponibilidade = datetime.today()
+if 'data_agendamento' not in st.session_state:
+    st.session_state.data_agendamento = datetime.today()
 
 with st.form("agendar_form"):
     st.subheader("Agendar Horário")
     nome = st.text_input("Nome")
     telefone = st.text_input("Telefone")
 
-    submitted = st.form_submit_button("Confirmar Agendamento")
+    def on_date_change():
+        st.session_state.data_agendamento = data_agendamento_obj.strftime('%d/%m/%Y')
+        st.experimental_rerun()
 
-    def atualizar_data_disponibilidade():
-        st.session_state.data_disponibilidade = data_agendamento
-
-    data_agendamento_obj = st.date_input("Data", min_value=datetime.today(), key="data_input_widget") # Using a key
+    data_agendamento_obj = st.date_input("Data", min_value=datetime.today(), key="data_input_widget", on_change=on_date_change)
     data_agendamento = data_agendamento_obj.strftime('%d/%m/%Y')
-    st.session_state.data_agendamento = data_agendamento # Update session state immediately
-
 
     dia_da_semana = data_agendamento_obj.weekday()
     if dia_da_semana < 5:
@@ -248,7 +245,7 @@ with st.form("agendar_form"):
 
     # Tabela de Disponibilidade (Movida para cá e com estilos)
     st.subheader("Disponibilidade dos Barbeiros")
-    data_disponibilidade = st.session_state.data_disponibilidade.strftime('%d/%m/%Y') # Usar o valor do session state
+    data_disponibilidade = st.session_state.data_agendamento # Using session state
 
     html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
     for barbeiro in barbeiros:
