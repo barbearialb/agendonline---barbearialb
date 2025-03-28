@@ -315,9 +315,9 @@ else:
     for servico, preco in servicos_com_preco.items():
         st.write(f"{servico}: {preco}")
 
-    submitted = st.form_submit_button("Confirmar Agendamento")
+    submitted = st.form_submit_button("Confirmar Agendamento") # O botão submit está dentro do form.
 
-if submitted:
+if submitted: # O uso da variavel 'submitted' está fora do form.
     with st.spinner("Processando agendamento..."):
         if nome and telefone and servicos_selecionados:
             if "Sem preferência" in barbeiro_selecionado:
