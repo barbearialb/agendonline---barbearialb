@@ -305,6 +305,7 @@ if submitted:
                                     'horario': horario_seguinte
                                 })
                                 enviar_email("Agendamento Confirmado", resumo)
+                                verificar_disponibilidade.clear()
                                 st.success("Agendamento confirmado com sucesso! Horário seguinte bloqueado.")
                                 st.info("Resumo do agendamento:\n" + resumo)
                                 st.info(f"O horário das {horario_seguinte} de {barbeiro_selecionado} foi bloqueado.")
@@ -324,6 +325,7 @@ if submitted:
                             """
                             salvar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
                             enviar_email("Agendamento Confirmado", resumo)
+                            verificar_disponibilidade.clear()
                             st.success("Agendamento confirmado com sucesso!")
                             st.info("Resumo do agendamento:\n" + resumo)
                             time.sleep(5)
@@ -355,6 +357,7 @@ if submitted:
                                 'horario': horario_seguinte
                             })
                             enviar_email("Agendamento Confirmado", resumo)
+                            verificar_disponibilidade.clear()
                             st.success("Agendamento confirmado com sucesso! Horário seguinte bloqueado.")
                             st.info("Resumo do agendamento:\n" + resumo)
                             st.info(f"O horário das {horario_seguinte} de {barbeiro_selecionado} foi bloqueado.")
@@ -374,6 +377,7 @@ if submitted:
                         """
                         salvar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
                         enviar_email("Agendamento Confirmado", resumo)
+                        verificar_disponibilidade.clear()
                         st.success("Agendamento confirmado com sucesso!")
                         st.info("Resumo do agendamento:\n" + resumo)
                         time.sleep(5)
@@ -404,6 +408,7 @@ with st.form("cancelar_form"):
                 Serviços: {', '.join(cancelado['servicos'])}
                 """
                 enviar_email("Agendamento Cancelado", resumo_cancelamento)
+                verificar_disponibilidade.clear()
                 st.success("Agendamento cancelado com sucesso!")
                 st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
                 # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
