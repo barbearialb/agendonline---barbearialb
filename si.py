@@ -434,7 +434,5 @@ with st.form("cancelar_form"):
                 st.info("O horário seguinte foi desbloqueado.")
             time.sleep(5)
             st.rerun()
-            # Adicionando novamente a limpeza do cache após o rerun (pode ser redundante)
-            verificar_disponibilidade.clear()
         else:
             st.error(f"Não há agendamento para o telefone informado nesse horário e com o barbeiro selecionado.")
