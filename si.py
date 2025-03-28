@@ -14,9 +14,10 @@ import time  # Importar a biblioteca time
 st.markdown(
     """
     <style>
-        /* table {
+        table {
             display: block !important;
-        } */
+            width: fit-content !important; /* Ou tente width: -webkit-fill-available !important; */
+        }
         div[data-testid="stForm"] {
             display: block !important;
         }
