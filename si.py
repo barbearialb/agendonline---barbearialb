@@ -218,8 +218,8 @@ if 'data_agendamento' not in st.session_state:
     st.session_state.data_agendamento = datetime.today().strftime('%d/%m/%Y')
 
 # Widget de seleção de data FORA do formulário
-data_agendamento_obj = st.date_input("Data para visualizar disponibilidade", min_value=datetime.today(), key="data_input_widget", on_change=lambda: [st.session_state.update(data_agendamento=data_agendamento_obj.strftime('%d/%m/%Y')), verificar_disponibilidade.clear(), st.experimental_rerun()])
-data_para_tabela = st.session_state.data_agendamento
+data_agendamento_obj = st.date_input("Data para visualizar disponibilidade", min_value=datetime.today(), key="data_input_widget", on_change=lambda: [verificar_disponibilidade.clear(), st.experimental_rerun()])
+data_para_tabela = st.session_state.get("data_input_widget", datetime.today()).strftime('%d/%m/%Y')
 
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
