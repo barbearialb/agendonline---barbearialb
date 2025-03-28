@@ -212,24 +212,6 @@ def bloquear_horario(data, horario, barbeiro):
         'horario': horario
     })
 
-# Função para buscar horários agendados para um barbeiro em uma data específica
-def buscar_horarios_agendados(data, barbeiro):
-    if not db:
-        st.error("Firestore não inicializado.")
-        return []
-    horarios_agendados = []
-    for horario in horarios_base:
-        chave_agendamento = f"{data}_{horario}_{barbeiro}"
-        agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
-        try:
-            doc = agendamento_ref.get()
-            if doc.exists:
-                horarios_agendados.append(horario)
-        except google.api_core.exceptions.RetryError as e:
-            st.error(f"Erro de conexão com o Firestore: {e}")
-        except Exception as e:
-            st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
-    return horarios_agendados
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -290,14 +272,9 @@ with st.form("agendar_form"):
 
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
-    horarios_disponiveis = horarios_base_agendamento[:]
+    horario_agendamento = st.selectbox("Horário", horarios_base_agendamento)
 
-    # Atualização da lista de horários disponíveis ao selecionar um barbeiro
-    if barbeiro_selecionado != "Sem preferência":
-        horarios_ocupados = buscar_horarios_agendados(data_agendamento, barbeiro_selecionado)
-        horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
-
-    horario_agendamento = st.selectbox("Horário", horarios_disponiveis)
+    horario_agendamento = st.selectbox("Horário", horarios_base_agendamento)
     servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
 
     # Exibir os preços com o símbolo R$
