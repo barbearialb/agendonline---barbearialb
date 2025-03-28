@@ -77,14 +77,13 @@ def enviar_email(assunto, mensagem):
             server.sendmail(EMAIL, EMAIL, msg.as_string())
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
-from datetime import datetime
 
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
 
-    # Converter a string de data para um objeto datetime
-    data_obj = datetime.strptime(data, '%d/%m/%Y').date()
+    # Converter a string de data para um objeto datetime.datetime
+    data_obj = datetime.strptime(data, '%d/%m/%Y')
 
     @firestore.transactional
     def atualizar_agendamento(transaction):
@@ -96,7 +95,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
             'telefone': telefone,
             'servicos': servicos,
             'barbeiro': barbeiro,
-            'data': data_obj,  # Salvar o objeto datetime no Firestore
+            'data': data_obj,  # Salvar o objeto datetime.datetime no Firestore
             'horario': horario
         })
 
