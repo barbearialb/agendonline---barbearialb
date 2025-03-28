@@ -220,10 +220,13 @@ def buscar_horarios_agendados(data, barbeiro):
     for horario in horarios_base:
         if barbeiro != "Sem preferência":
             chave_agendamento = f"{data}_{horario}_{barbeiro}"
+            chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
             agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+            bloqueio_ref = db.collection('agendamentos').document(chave_bloqueio)
             try:
-                doc = agendamento_ref.get()
-                if doc.exists:
+                doc_agendamento = agendamento_ref.get()
+                doc_bloqueio = bloqueio_ref.get()
+                if doc_agendamento.exists or doc_bloqueio.exists:
                     horarios_agendados.append(horario)
             except google.api_core.exceptions.RetryError as e:
                 st.error(f"Erro de conexão com o Firestore: {e}")
