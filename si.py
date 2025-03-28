@@ -283,6 +283,8 @@ with st.form("agendar_form"):
     for servico, preco in servicos_com_preco.items():
         st.write(f"{servico}: {preco}")
 
+    submitted = st.form_submit_button("Confirmar Agendamento")
+
 if submitted:
     with st.spinner("Processando agendamento..."):
         if nome and telefone and servicos_selecionados:
