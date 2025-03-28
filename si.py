@@ -156,7 +156,6 @@ def desbloquear_horario(data, horario, barbeiro):
         st.error(f"Erro ao desbloquear horário: {e}")
 
 # Função para verificar disponibilidade do horário no Firebase
-@st.cache_data
 def verificar_disponibilidade(data, horario, barbeiro=None):
     if not db:
         st.error("Firestore não inicializado.")
