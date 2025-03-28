@@ -226,9 +226,10 @@ with st.form("agendar_form"):
     def atualizar_data_disponibilidade():
         st.session_state.data_disponibilidade = data_agendamento
 
-    data_agendamento = st.date_input("Data", min_value=datetime.today(), on_change=atualizar_data_disponibilidade).strftime('%d/%m/%Y')
+    data_agendamento_obj = st.date_input("Data", min_value=datetime.today(), on_change=atualizar_data_disponibilidade)
+    data_agendamento = data_agendamento_obj.strftime('%d/%m/%Y')
 
-    dia_da_semana = datetime.strptime(data_agendamento, '%d/%m/%Y').weekday()
+    dia_da_semana = data_agendamento_obj.weekday()
     if dia_da_semana < 5:
         horarios_base_agendamento = []
         for h in range(8, 20):
@@ -262,7 +263,7 @@ with st.form("agendar_form"):
     html_table += '</table>'
     st.markdown(html_table, unsafe_allow_html=True)
 
-    horarios_disponiveis = horarios_base_agendamento[:]  # Cria uma cópia da lista base para agendamento
+    horarios_disponiveis = horarios_base_agendamento[:]
 
     if barbeiro_selecionado != "Sem preferência":
         horarios_ocupados = buscar_horarios_agendados(data_agendamento, barbeiro_selecionado)
