@@ -245,7 +245,8 @@ for horario in horarios_base:
         status = "Disponível" if disponivel else "Ocupado"
         bg_color = "forestgreen" if disponivel else "firebrick"
         color_text = "white" if disponivel else "white"
-        html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text};">{status}</td>'
+        # Adicionando uma altura fixa para as células de dados
+        html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
 html_table += '</tr>'
 
 html_table += '</table>'
