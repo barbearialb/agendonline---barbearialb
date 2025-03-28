@@ -138,11 +138,19 @@ def verificar_disponibilidade(data, horario, barbeiro=None):
     if not db:
         st.error("Firestore não inicializado.")
         return False
-    chave_agendamento = f"{data}_{horario}_{barbeiro}" if barbeiro else f"{data}_{horario}"
+
+    # Verificar agendamento regular
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+
+    # Verificar horário bloqueado
+    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
+    bloqueio_ref = db.collection('agendamentos').document(chave_bloqueio)
+
     try:
-        doc = agendamento_ref.get()
-        return not doc.exists
+        doc_agendamento = agendamento_ref.get()
+        doc_bloqueio = bloqueio_ref.get()
+        return not doc_agendamento.exists and not doc_bloqueio.exists
     except google.api_core.exceptions.RetryError as e:
         st.error(f"Erro de conexão com o Firestore: {e}")
         return False
