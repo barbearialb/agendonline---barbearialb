@@ -115,8 +115,20 @@ def cancelar_agendamento(data, horario, telefone, barbeiro):
         doc = agendamento_ref.get()
         if doc.exists and doc.to_dict()['telefone'] == telefone:
             agendamento_data = doc.to_dict()
-            # Converter a data de volta para string no formato '%d/%m/%Y'
-            agendamento_data['data'] = agendamento_data['data'].strftime('%d/%m/%Y')
+            # Verificar se a data é um objeto datetime antes de formatar
+            if isinstance(agendamento_data['data'], datetime):
+                agendamento_data['data'] = agendamento_data['data'].date().strftime('%d/%m/%Y')
+            elif isinstance(agendamento_data['data'], str):
+                # Se for string, tentamos converter para datetime
+                try:
+                    agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%Y-%m-%d').date().strftime('%d/%m/%Y')
+                except ValueError:
+                     st.error("Formato de data inválido no Firestore")
+                     return None
+            else:
+                st.error("Formato de data inválido no Firestore")
+                return None
+
             agendamento_ref.delete()
             return agendamento_data
         else:
