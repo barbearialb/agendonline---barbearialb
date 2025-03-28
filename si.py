@@ -82,6 +82,9 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
 
+    # Converter a string de data para um objeto datetime.datetime
+    data_obj = datetime.strptime(data, '%d/%m/%Y')
+
     @firestore.transactional
     def atualizar_agendamento(transaction):
         doc = agendamento_ref.get(transaction=transaction)
@@ -92,7 +95,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
             'telefone': telefone,
             'servicos': servicos,
             'barbeiro': barbeiro,
-            'data': data,
+            'data': data_obj,  # Salvar o objeto datetime.datetime no Firestore
             'horario': horario
         })
 
@@ -106,14 +109,33 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
 
 # Função para cancelar agendamento no Firestore
 def cancelar_agendamento(data, horario, telefone, barbeiro):
-    chave_agendamento = f"{data}_{horario}_{barbeiro}" # Incluímos o barbeiro na chave
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
         if doc.exists and doc.to_dict()['telefone'] == telefone:
             agendamento_data = doc.to_dict()
+            # Verificar se a data é um objeto datetime antes de formatar
+            if isinstance(agendamento_data['data'], datetime):
+                agendamento_data['data'] = agendamento_data['data'].date().strftime('%d/%m/%Y')
+            elif isinstance(agendamento_data['data'], str):
+                # Se for string, tentamos converter para datetime
+                try:
+                    # Tentar converter de diferentes formatos comuns
+                    try:
+                        agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%Y-%m-%d').date().strftime('%d/%m/%Y')
+                    except ValueError:
+                        agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%d/%m/%Y').date().strftime('%d/%m/%Y')
+
+                except ValueError:
+                    st.error("Formato de data inválido no Firestore")
+                    return None
+            else:
+                st.error("Formato de data inválido no Firestore")
+                return None
+
             agendamento_ref.delete()
-            return agendamento_data # Retorna os dados completos do agendamento cancelado
+            return agendamento_data
         else:
             return None
     except Exception as e:
@@ -214,24 +236,49 @@ st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
 st.image("https://github.com/barbearialb/sistemalb/blob/main/icone.png?raw=true", use_container_width=True)
 
-# Aba de Agendamento
-# Aba de Agendamento
 if 'data_agendamento' not in st.session_state:
     st.session_state.data_agendamento = datetime.today().strftime('%d/%m/%Y')
 
+if 'date_changed' not in st.session_state:
+    st.session_state['date_changed'] = False
+
+def handle_date_change():
+    verificar_disponibilidade.clear()
+
+data_agendamento_obj = st.date_input("Data para visualizar disponibilidade", min_value=datetime.today(), key="data_input_widget", on_change=handle_date_change)
+data_para_tabela = st.session_state.get("data_input_widget", datetime.today()).strftime('%d/%m/%Y')
+
+# Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
+st.subheader("Disponibilidade dos Barbeiros")
+
+html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
+for barbeiro in barbeiros:
+    html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
+html_table += '</tr>'
+
+for horario in horarios_base:
+    html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
+    for barbeiro in barbeiros:
+        disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+        status = "Disponível" if disponivel else "Ocupado"
+        bg_color = "forestgreen" if disponivel else "firebrick"
+        color_text = "white" if disponivel else "white"
+        html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text};">{status}</td>'
+html_table += '</tr>'
+
+html_table += '</table>'
+st.markdown(html_table, unsafe_allow_html=True)
+
+# Aba de Agendamento (FORMULÁRIO)
 with st.form("agendar_form"):
     st.subheader("Agendar Horário")
     nome = st.text_input("Nome")
     telefone = st.text_input("Telefone")
 
-    def on_date_change():
-        st.session_state.data_agendamento = data_agendamento_obj.strftime('%d/%m/%Y')
-        st.experimental_rerun()
+    # Usar o valor do session state para a data dentro do formulário
+    data_agendamento = st.session_state.data_agendamento
 
-    data_agendamento_obj = st.date_input("Data", min_value=datetime.today(), key="data_input_widget")
-    data_agendamento = data_agendamento_obj.strftime('%d/%m/%Y')
-
-    dia_da_semana = data_agendamento_obj.weekday()
+    dia_da_semana = datetime.strptime(data_agendamento, '%d/%m/%Y').weekday()
     if dia_da_semana < 5:
         horarios_base_agendamento = []
         for h in range(8, 20):
@@ -242,28 +289,6 @@ with st.form("agendar_form"):
         horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
-
-    # Tabela de Disponibilidade (Movida para cá e com estilos)
-    st.subheader("Disponibilidade dos Barbeiros")
-    data_disponibilidade = data_agendamento # Using session state
-
-    html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
-    for barbeiro in barbeiros:
-        html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
-    html_table += '</tr>'
-
-    for horario in horarios_base:
-        html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
-        for barbeiro in barbeiros:
-            disponivel = verificar_disponibilidade(data_disponibilidade, horario, barbeiro)
-            status = "Disponível" if disponivel else "Ocupado"
-            bg_color = "forestgreen" if disponivel else "firebrick"
-            color_text = "white" if disponivel else "white"
-            html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text};">{status}</td>'
-    html_table += '</tr>'
-
-    html_table += '</table>'
-    st.markdown(html_table, unsafe_allow_html=True)
 
     horarios_disponiveis = horarios_base_agendamento[:]
 
