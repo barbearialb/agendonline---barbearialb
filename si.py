@@ -432,6 +432,5 @@ with st.form("cancelar_form"):
                     desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
                     st.info("O horário seguinte foi desbloqueado.")
                 time.sleep(5)
-                st.rerun()
             else:
                 st.error(f"Não há agendamento para o telefone informado nesse horário e com o barbeiro selecionado.")
