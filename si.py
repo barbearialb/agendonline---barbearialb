@@ -38,17 +38,17 @@ if FIREBASE_CREDENTIALS:
             firebase_admin.initialize_app(cred)
         except Exception as e:
             st.error(f"Erro ao inicializar o Firebase: {e}")
-    
+
 
 # Obter referência do Firestore
 db = firestore.client() if firebase_admin._apps else None
 
 # Dados básicos
-horarios = []
+horarios_base = []
 for h in range(8, 20):
     for m in (0, 30):
         if h < 12 or h >= 14:  # Bloquear horários de almoço
-            horarios.append(f"{h:02d}:{m:02d}")
+            horarios_base.append(f"{h:02d}:{m:02d}")
 
 servicos = {
     "Tradicional": 15,
@@ -165,7 +165,7 @@ def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
         return False
-    
+
 # Função para bloquear horário para um barbeiro específico
 def bloquear_horario(data, horario, barbeiro):
     chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
@@ -177,6 +177,26 @@ def bloquear_horario(data, horario, barbeiro):
         'data': data,
         'horario': horario
     })
+
+def buscar_horarios_agendados(data, barbeiro):
+    if not db:
+        st.error("Firestore não inicializado.")
+        return []
+    horarios_agendados = []
+    for horario in horarios_base:
+        if barbeiro != "Sem preferência":
+            chave_agendamento = f"{data}_{horario}_{barbeiro}"
+            agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+            try:
+                doc = agendamento_ref.get()
+                if doc.exists:
+                    horarios_agendados.append(horario)
+            except google.api_core.exceptions.RetryError as e:
+                st.error(f"Erro de conexão com o Firestore: {e}")
+            except Exception as e:
+                st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
+    return horarios_agendados
+
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
@@ -189,49 +209,21 @@ telefone = st.text_input("Telefone")
 data = st.date_input("Data", min_value=datetime.today()).strftime('%d/%m/%Y')
 dia_da_semana = datetime.strptime(data, '%d/%m/%Y').weekday()
 if dia_da_semana < 5:  # Segunda a sexta-feira
-    horarios_base = []
+    horarios_base_agendamento = []
     for h in range(8, 20):
         for m in (0, 30):
             if h < 12 or h >= 14:  # Bloquear horários de almoço
-                horarios_base.append(f"{h:02d}:{m:02d}")
+                horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
 else:  # Sábado e domingo
-    horarios_base = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+
 barbeiro = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
-def buscar_horarios_agendados(data, barbeiro):
-    if not db:
-        st.error("Firestore não inicializado.")
-        return []
-    horarios_agendados = []
-    try:
-        st.write(f"Buscando agendamentos para o barbeiro: {barbeiro}") # Modificado
-        agendamentos_ref = db.collection('agendamentos')
-        query = agendamentos_ref.where('barbeiro', '==', barbeiro).stream() # Removido filtro de data
-        for doc in query:
-            agendamento = doc.to_dict()
-            st.write(f"Agendamento encontrado (sem filtro de data): {agendamento}")
-            horarios_agendados.append(agendamento['horario'])
-        st.write(f"Horários agendados encontrados (sem filtro de data): {horarios_agendados}")
-        return horarios_agendados
-    except Exception as e:
-        st.error(f"Erro ao buscar horários agendados: {e}")
-        return []
+horarios_disponiveis = horarios_base_agendamento[:]  # Cria uma cópia da lista base para agendamento
 
 if barbeiro != "Sem preferência":
     horarios_ocupados = buscar_horarios_agendados(data, barbeiro)
-    st.write(f"Horários ocupados: {horarios_ocupados}") # Adicione esta linha
-    st.write(f"Conteúdo de horarios_base: {horarios_base}") # Adicione esta linha
-    st.write(f"Conteúdo de horarios_ocupados: {horarios_ocupados}") # Adicione esta linha
-    horarios_disponiveis = []
-    for h_base in horarios_base:
-        encontrado = False
-        for h_ocupado in horarios_ocupados:
-            if h_base == h_ocupado:
-                encontrado = True
-                break
-        if not encontrado:
-            horarios_disponiveis.append(h_base)
-    st.write(f"Horários disponíveis: {horarios_disponiveis}") # Adicione esta linha
+    horarios_disponiveis = [h for h in horarios_base_agendamento if h not in horarios_ocupados]
 
 horario = st.selectbox("Horário", horarios_disponiveis)
 servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
@@ -334,7 +326,7 @@ if st.button("Confirmar Agendamento"):
 st.subheader("Cancelar Agendamento")
 telefone_cancelar = st.text_input("Telefone para Cancelamento")
 data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today()).strftime('%d/%m/%Y')
-horario_cancelar = st.selectbox("Horário do Agendamento", horarios)
+horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base)
 barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros) # Adicionando a seleção do barbeiro
 
 if st.button("Cancelar Agendamento"):
