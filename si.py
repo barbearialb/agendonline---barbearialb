@@ -121,10 +121,15 @@ def cancelar_agendamento(data, horario, telefone, barbeiro):
             elif isinstance(agendamento_data['data'], str):
                 # Se for string, tentamos converter para datetime
                 try:
-                    agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%Y-%m-%d').date().strftime('%d/%m/%Y')
+                    # Tentar converter de diferentes formatos comuns
+                    try:
+                        agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%Y-%m-%d').date().strftime('%d/%m/%Y')
+                    except ValueError:
+                        agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%d/%m/%Y').date().strftime('%d/%m/%Y')
+
                 except ValueError:
-                     st.error("Formato de data inválido no Firestore")
-                     return None
+                    st.error("Formato de data inválido no Firestore")
+                    return None
             else:
                 st.error("Formato de data inválido no Firestore")
                 return None
