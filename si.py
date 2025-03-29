@@ -61,11 +61,7 @@ if FIREBASE_CREDENTIALS:
 db = firestore.client() if firebase_admin._apps else None
 
 # Dados básicos
-horarios_base = []
-for h in range(8, 20):
-    for m in (0, 30):
-        if h < 12 or h >= 14:  # Bloquear horários de almoço
-            horarios_base.append(f"{h:02d}:{m:02d}")
+# A lista de horários base será gerada dinamicamente na tabela
 
 servicos = {
     "Tradicional": 15,
@@ -253,7 +249,19 @@ for barbeiro in barbeiros:
     html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
 html_table += '</tr>'
 
-for horario in horarios_base:
+# Gerar horários base dinamicamente
+data_obj_tabela = datetime.strptime(data_para_tabela, '%d/%m/%Y')
+dia_da_semana_tabela = data_obj_tabela.weekday()  # 0 = segunda, 6 = domingo
+horarios_tabela = []
+for h in range(8, 20):
+    for m in (0, 30):
+        horario_str = f"{h:02d}:{m:02d}"
+        if dia_da_semana_tabela == 5:  # Sábado
+            horarios_tabela.append(horario_str)
+        elif h < 12 or h >= 14:  # Outros dias, bloquear almoço
+            horarios_tabela.append(horario_str)
+
+for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
     for barbeiro in barbeiros:
         disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
@@ -422,7 +430,7 @@ with st.form("cancelar_form"):
     st.subheader("Cancelar Agendamento")
     telefone_cancelar = st.text_input("Telefone para Cancelamento")
     data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today()).strftime('%d/%m/%Y')
-    horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base)
+    horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base_agendamento) # Usar a lista correta aqui
     barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros) # Adicionando a seleção do barbeiro
     submitted_cancelar = st.form_submit_button("Cancelar Agendamento")
     if submitted_cancelar:
@@ -445,7 +453,7 @@ with st.form("cancelar_form"):
             # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
             if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                 horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-                 # Adicione estas linhas temporariamente para verificar os valores
+                # Adicione estas linhas temporariamente para verificar os valores
                 desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
                 st.info("O horário seguinte foi desbloqueado.")
             time.sleep(5)
