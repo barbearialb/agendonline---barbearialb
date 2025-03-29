@@ -508,16 +508,16 @@ if submitted:
 with st.form("cancelar_form"):
     st.subheader("Cancelar Agendamento")
     telefone_cancelar = st.text_input("Telefone para Cancelamento")
-    data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today()) # Manter como objeto date
-    horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base_agendamento) # Usar a lista correta aqui
-    barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros) # Adicionando a seleção do barbeiro
+    data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today())
+    horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base_agendamento)
+    barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros)
     submitted_cancelar = st.form_submit_button("Cancelar Agendamento")
     if submitted_cancelar:
         with st.spinner("Processando cancelamento..."):
-            data_cancelar_str = data_cancelar.strftime('%d/%m/%Y') # Formatar para string aqui
+            data_cancelar_str = data_cancelar.strftime('%d/%m/%Y')
             cancelado = cancelar_agendamento(data_cancelar_str, horario_cancelar, telefone_cancelar, barbeiro_cancelar)
 
-        if cancelado:
+        if cancelado is not None:
             resumo_cancelamento = f"""
             Nome: {cancelado['nome']}
             Telefone: {cancelado['telefone']}
@@ -530,10 +530,8 @@ with st.form("cancelar_form"):
             verificar_disponibilidade.clear()
             st.success("Agendamento cancelado com sucesso!")
             st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
-            # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
             if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                 horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-                # Adicione estas linhas temporariamente para verificar os valores
                 desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
                 st.info("O horário seguinte foi desbloqueado.")
             time.sleep(5)
