@@ -26,22 +26,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Variáveis para controlar a exibição de mensagens pós-reload
-if 'booking_success_message' not in st.session_state:
-    st.session_state.booking_success_message = None
-if 'cancellation_success_message' not in st.session_state:
-    st.session_state.cancellation_success_message = None
-
-# Exibir mensagens de sucesso pós-reload
-if st.session_state.booking_success_message:
-    st.success("Agendamento confirmado com sucesso!")
-    st.info("Resumo do agendamento:\n" + st.session_state.booking_success_message)
-    st.session_state.booking_success_message = None # Limpar a mensagem
-if st.session_state.cancellation_success_message:
-    st.success("Agendamento cancelado com sucesso!")
-    st.info("Resumo do cancelamento:\n" + st.session_state.cancellation_success_message)
-    st.session_state.cancellation_success_message = None # Limpar a mensagem
-
 # Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
 EMAIL = None
@@ -352,8 +336,9 @@ if submitted:
                                 })
                                 enviar_email("Agendamento Confirmado", resumo)
                                 verificar_disponibilidade.clear()
-                                # Removendo as mensagens de sucesso daqui
-                                st.session_state.booking_success_message = "Resumo do agendamento:\n" + resumo + f"\nO horário das {horario_seguinte} de {barbeiro_selecionado} foi bloqueado."
+                                st.success("Agendamento confirmado com sucesso! Horário seguinte bloqueado.")
+                                st.info("Resumo do agendamento:\n" + resumo)
+                                st.info(f"O horário das {horario_seguinte} de {barbeiro_selecionado} foi bloqueado.")
                                 time.sleep(5)
                                 st.rerun()
                             else:
@@ -371,8 +356,8 @@ if submitted:
                             salvar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
                             enviar_email("Agendamento Confirmado", resumo)
                             verificar_disponibilidade.clear()
-                            # Removendo as mensagens de sucesso daqui
-                            st.session_state.booking_success_message = "Resumo do agendamento:\n" + resumo
+                            st.success("Agendamento confirmado com sucesso!")
+                            st.info("Resumo do agendamento:\n" + resumo)
                             time.sleep(5)
                             st.rerun()
                     else:
@@ -403,8 +388,9 @@ if submitted:
                             })
                             enviar_email("Agendamento Confirmado", resumo)
                             verificar_disponibilidade.clear()
-                            # Removendo as mensagens de sucesso daqui
-                            st.session_state.booking_success_message = "Resumo do agendamento:\n" + resumo + f"\nO horário das {horario_seguinte} de {barbeiro_selecionado} foi bloqueado."
+                            st.success("Agendamento confirmado com sucesso! Horário seguinte bloqueado.")
+                            st.info("Resumo do agendamento:\n" + resumo)
+                            st.info(f"O horário das {horario_seguinte} de {barbeiro_selecionado} foi bloqueado.")
                             time.sleep(5)
                             st.rerun()
                         else:
@@ -422,8 +408,8 @@ if submitted:
                         salvar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
                         enviar_email("Agendamento Confirmado", resumo)
                         verificar_disponibilidade.clear()
-                        # Removendo as mensagens de sucesso daqui
-                        st.session_state.booking_success_message = "Resumo do agendamento:\n" + resumo
+                        st.success("Agendamento confirmado com sucesso!")
+                        st.info("Resumo do agendamento:\n" + resumo)
                         time.sleep(5)
                         st.rerun()
                 else:
@@ -452,17 +438,17 @@ with st.form("cancelar_form"):
             Barbeiro: {cancelado['barbeiro']}
             Serviços: {', '.join(cancelado['servicos'])}
             """
-        enviar_email("Agendamento Cancelado", resumo_cancelamento)
-        verificar_disponibilidade.clear()
-        # Removendo as mensagens de sucesso daqui
-        st.session_state.cancellation_success_message = "Resumo do cancelamento:\n" + resumo_cancelamento
-        # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
-        if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
-            horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-            # Adicione estas linhas temporariamente para verificar os valores
-            desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
-            st.session_state.cancellation_success_message += "\nO horário seguinte foi desbloqueado."
-        time.sleep(5)
-        st.rerun()
-    else:
-        st.error(f"Não há agendamento para o telefone informado nesse horário e com o barbeiro selecionado.")
+            enviar_email("Agendamento Cancelado", resumo_cancelamento)
+            verificar_disponibilidade.clear()
+            st.success("Agendamento cancelado com sucesso!")
+            st.info("Resumo do cancelamento:\n" + resumo_cancelamento)
+            # Verificar se o horário seguinte estava bloqueado e desbloqueá-lo
+            if "Barba" in cancelado['servicos'] and any(corte in cancelado['servicos'] for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
+                horario_seguinte = (datetime.strptime(cancelado['horario'], '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                 # Adicione estas linhas temporariamente para verificar os valores
+                desbloquear_horario(cancelado['data'], horario_seguinte, cancelado['barbeiro'])
+                st.info("O horário seguinte foi desbloqueado.")
+            time.sleep(5)
+            st.rerun()
+        else:
+            st.error(f"Não há agendamento para o telefone informado nesse horário e com o barbeiro selecionado.")
