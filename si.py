@@ -230,16 +230,17 @@ st.header("Faça seu agendamento ou cancele")
 st.image("https://github.com/barbearialb/sistemalb/blob/main/icone.png?raw=true", use_container_width=True)
 
 if 'data_agendamento' not in st.session_state:
-    st.session_state.data_agendamento = datetime.today().strftime('%d/%m/%Y')
+    st.session_state.data_agendamento = datetime.today().date()  # Inicializar como objeto date
 
 if 'date_changed' not in st.session_state:
     st.session_state['date_changed'] = False
 
 def handle_date_change():
+    st.session_state.data_agendamento = st.session_state.data_input_widget  # Atualizar com o objeto date
     verificar_disponibilidade.clear()
 
 data_agendamento_obj = st.date_input("Data para visualizar disponibilidade", min_value=datetime.today(), key="data_input_widget", on_change=handle_date_change)
-data_para_tabela = st.session_state.get("data_input_widget", datetime.today()).strftime('%d/%m/%Y')
+data_para_tabela = data_agendamento_obj.strftime('%d/%m/%Y')  # Formatar o objeto date
 
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
@@ -250,7 +251,7 @@ for barbeiro in barbeiros:
 html_table += '</tr>'
 
 # Gerar horários base dinamicamente
-data_obj_tabela = datetime.strptime(data_para_tabela, '%d/%m/%Y')
+data_obj_tabela = data_agendamento_obj # Usar o objeto date diretamente
 dia_da_semana_tabela = data_obj_tabela.weekday()  # 0 = segunda, 6 = domingo
 horarios_tabela = []
 for h in range(8, 20):
@@ -310,7 +311,7 @@ with st.form("agendar_form"):
     telefone = st.text_input("Telefone")
 
     # Usar o valor do session state para a data dentro do formulário
-    data_agendamento = st.session_state.data_agendamento
+    data_agendamento = st.session_state.data_agendamento.strftime('%d/%m/%Y') # Formatar para string aqui
 
     dia_da_semana = datetime.strptime(data_agendamento, '%d/%m/%Y').weekday()
     if dia_da_semana < 5:
@@ -446,8 +447,8 @@ if submitted:
                             st.info("Resumo do agendamento:\n" + resumo)
                             time.sleep(5)
                             st.rerun()
-                    else:
-                        st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
+                else:
+                    st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
             else:
                 if verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiro_selecionado):
                     if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
@@ -507,13 +508,14 @@ if submitted:
 with st.form("cancelar_form"):
     st.subheader("Cancelar Agendamento")
     telefone_cancelar = st.text_input("Telefone para Cancelamento")
-    data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today()).strftime('%d/%m/%Y')
+    data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today()) # Manter como objeto date
     horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base_agendamento) # Usar a lista correta aqui
     barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros) # Adicionando a seleção do barbeiro
     submitted_cancelar = st.form_submit_button("Cancelar Agendamento")
     if submitted_cancelar:
         with st.spinner("Processando cancelamento..."):
-            cancelado = cancelar_agendamento(data_cancelar, horario_cancelar, telefone_cancelar, barbeiro_cancelar)
+            data_cancelar_str = data_cancelar.strftime('%d/%m/%Y') # Formatar para string aqui
+            cancelado = cancelar_agendamento(data_cancelar_str, horario_cancelar, telefone_cancelar, barbeiro_cancelar)
 
         if cancelado:
             resumo_cancelamento = f"""
