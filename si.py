@@ -273,26 +273,23 @@ for horario in horarios_tabela:
         minuto_int = int(horario.split(':')[1])
 
         if dia_da_semana_tabela < 5:  # Segunda a Sexta
-            if hora_int == 11 and minuto_int >= 0 and hora_int < 12:
-                if barbeiro == "Lucas Borges":
-                    pass  # Lucas Borges disponível
-                else:
-                    status = "Indisponível"
-                    bg_color = "orange"
-            elif hora_int == 12 and minuto_int >= 0 and hora_int < 13:
+            if (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro != "Lucas Borges") or \
+               (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
+               (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
                 status = "Indisponível"
                 bg_color = "orange"
-            elif hora_int == 13 and minuto_int >= 0 and hora_int < 14:
-                if barbeiro == "Aluizio":
-                    pass  # Aluizio disponível
-                else:
-                    status = "Indisponível"
-                    bg_color = "orange"
+            elif (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro == "Lucas Borges"):
+                status = "Disponível" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "Ocupado"
+                bg_color = "forestgreen" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "firebrick"
+                color_text = "white"
+            elif (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro == "Aluizio"):
+                status = "Disponível" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "Ocupado"
+                bg_color = "forestgreen" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "firebrick"
+                color_text = "white"
             else:
-                if status != "Indisponível":
-                    status = "Disponível" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "Ocupado"
-                    bg_color = "forestgreen" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "firebrick"
-                    color_text = "white"
+                status = "Disponível" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "Ocupado"
+                bg_color = "forestgreen" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "firebrick"
+                color_text = "white"
 
         elif dia_da_semana_tabela == 5: # Sábado - Manter a lógica original
             status = "Disponível" if verificar_disponibilidade(data_para_tabela, horario, barbeiro) else "Ocupado"
