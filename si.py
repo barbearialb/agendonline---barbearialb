@@ -26,7 +26,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Carregar as credenciais do Firebase e e-mail a partir do Streamlit secrets
+# Carregar as credenciais do Firebase e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
 EMAIL = None
 SENHA = None
@@ -332,6 +332,7 @@ with st.form("agendar_form"):
     horarios_filtrados = []
     for horario in horarios_base_agendamento:
         hora_int = int(horario.split(':')[0])
+        minuto_int = int(horario.split(':')[1])
         if dia_da_semana < 5:
             if barbeiro_selecionado == "Lucas Borges":
                 if not (hora_int == 12):
@@ -361,6 +362,32 @@ with st.form("agendar_form"):
 
 if submitted:
     with st.spinner("Processando agendamento..."):
+        data_obj_agendamento = datetime.strptime(data_agendamento, '%d/%m/%Y')
+        dia_da_semana_agendamento = data_obj_agendamento.weekday()
+        hora_agendamento_int = int(horario_agendamento.split(':')[0])
+        minuto_agendamento_int = int(horario_agendamento.split(':')[1])
+
+        if dia_da_semana_agendamento < 5:  # Segunda a Sexta
+            if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiro_selecionado != "Lucas Borges") or \
+               (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+               (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
+                st.error("Barbeiro em horário de almoço")
+                st.stop()  # Impede que o restante do código de agendamento seja executado
+            elif barbeiro_selecionado == "Sem preferência":
+                lucas_indisponivel = (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12) or \
+                                    (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                                    (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[0] != "Aluizio") # Lucas não é Aluizio
+
+                aluizio_indisponivel = (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiros[1] != "Lucas Borges") or \
+                                      (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                                      (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14)
+
+                if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiros[0] != "Lucas Borges" and barbeiros[1] != "Lucas Borges") or \
+                   (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                   (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
+                    st.error("Barbeiros em horário de almoço")
+                    st.stop()
+
         if nome and telefone and servicos_selecionados:
             if "Sem preferência" in barbeiro_selecionado:
                 # Verifica se ambos os barbeiros estão ocupados
