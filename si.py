@@ -324,6 +324,8 @@ with st.form("agendar_form"):
                     horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
                 elif h == 13 and m == 0:
                     horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
+                elif h == 13 and m == 30: # Adicionando o horário das 13:30
+                    horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
     else:
         horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
@@ -509,7 +511,23 @@ with st.form("cancelar_form"):
     st.subheader("Cancelar Agendamento")
     telefone_cancelar = st.text_input("Telefone para Cancelamento")
     data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today())
-    horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base_agendamento)
+    # A lista de horários para cancelamento agora usará a lista completa
+    dia_da_semana_cancelar = data_cancelar.weekday()
+    if dia_da_semana_cancelar < 5:
+        horarios_base_cancelamento = []
+        for h in range(8, 20):
+            for m in (0, 30):
+                if h < 11 or h >= 14:
+                    horarios_base_cancelamento.append(f"{h:02d}:{m:02d}")
+                elif h == 11 and m == 0:
+                    horarios_base_cancelamento.append(f"{h:02d}:{m:02d}")
+                elif h == 13 and m == 0:
+                    horarios_base_cancelamento.append(f"{h:02d}:{m:02d}")
+                elif h == 13 and m == 30: # Adicionando o horário das 13:30
+                    horarios_base_cancelamento.append(f"{h:02d}:{m:02d}")
+    else:
+        horarios_base_cancelamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base_cancelamento)
     barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros)
     submitted_cancelar = st.form_submit_button("Cancelar Agendamento")
     if submitted_cancelar:
