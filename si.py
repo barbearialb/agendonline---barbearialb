@@ -8,8 +8,8 @@ import json
 import google.api_core.exceptions
 import google.api_core.retry as retry
 import random
-import pandas as pd  # Importar a biblioteca pandas
-import time  # Importar a biblioteca time
+import pandas as pd
+import time
 
 st.markdown(
     """
@@ -70,7 +70,12 @@ servicos = {
     "Navalhado": 25,
     "Pezim": 7,
     "Barba": 15,
+    "Abordagem de visagismo": 45,
+    "Consultoria de visagismo": 65,
 }
+
+# Lista de serviços para exibição
+lista_servicos = list(servicos.keys())
 
 barbeiros = ["Lucas Borges", "Aluizio"]
 
@@ -142,7 +147,7 @@ def cancelar_agendamento(data, horario, telefone, barbeiro):
                     st.error("Formato de data inválido no Firestore")
                     return None
             else:
-                st.error("Formato de data inválido no Firestore")
+                st.error("Formato de data inválida no Firestore")
                 return None
 
             agendamento_ref.delete()
@@ -257,10 +262,7 @@ horarios_tabela = []
 for h in range(8, 20):
     for m in (0, 30):
         horario_str = f"{h:02d}:{m:02d}"
-        if dia_da_semana_tabela == 5:  # Sábado
-            horarios_tabela.append(horario_str)
-        elif dia_da_semana_tabela < 5:  # Segunda a Sexta
-            horarios_tabela.append(horario_str)
+        horarios_tabela.append(horario_str)
 
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
@@ -275,8 +277,8 @@ for horario in horarios_tabela:
 
         if dia_da_semana_tabela < 5:  # Segunda a Sexta
             if (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro != "Lucas Borges") or \
-               (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
-               (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
+                (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
+                (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
                 status = "Indisponível"
                 bg_color = "orange"
             elif (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro == "Lucas Borges"):
@@ -313,47 +315,19 @@ with st.form("agendar_form"):
     # Usar o valor do session state para a data dentro do formulário
     data_agendamento = st.session_state.data_agendamento.strftime('%d/%m/%Y') # Formatar para string aqui
 
-    dia_da_semana = datetime.strptime(data_agendamento, '%d/%m/%Y').weekday()
-    if dia_da_semana < 5:
-        horarios_base_agendamento = []
-        for h in range(8, 20):
-            for m in (0, 30):
-                if h < 11 or h >= 14:
-                    horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
-                elif h == 11 and m == 0:
-                    horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
-                elif h == 13 and m == 0:
-                    horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
-                elif h == 13 and m == 30: # Adicionando o horário das 13:30
-                    horarios_base_agendamento.append(f"{h:02d}:{m:02d}")
-    else:
-        horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    # Geração da lista de horários completa para agendamento
+    horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
     # Filtrar horários de almoço com base no barbeiro selecionado
     horarios_filtrados = []
     for horario in horarios_base_agendamento:
-        hora_int = int(horario.split(':')[0])
-        minuto_int = int(horario.split(':')[1])
-        if dia_da_semana < 5:
-            if barbeiro_selecionado == "Lucas Borges":
-                if not (hora_int == 12):
-                    horarios_filtrados.append(horario)
-            elif barbeiro_selecionado == "Aluizio":
-                if not (hora_int == 12):
-                    horarios_filtrados.append(horario)
-            elif barbeiro_selecionado == "Sem preferência":
-                if not (hora_int == 12):
-                    horarios_filtrados.append(horario)
-            else: # Para horários antes e depois do almoço
-                horarios_filtrados.append(horario)
-        else:
-            horarios_filtrados.append(horario)
+        horarios_filtrados.append(horario)
 
     horario_agendamento = st.selectbox("Horário", horarios_filtrados)  # Mantenha esta linha
 
-    servicos_selecionados = st.multiselect("Serviços", list(servicos.keys()))
+    servicos_selecionados = st.multiselect("Serviços", lista_servicos)
 
     # Exibir os preços com o símbolo R$
     servicos_com_preco = {servico: f"R$ {preco}" for servico, preco in servicos.items()}
@@ -372,26 +346,32 @@ if submitted:
 
         if dia_da_semana_agendamento < 5:  # Segunda a Sexta
             if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiro_selecionado != "Lucas Borges") or \
-               (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-               (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
+                (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
                 st.error("Barbeiro em horário de almoço")
                 st.stop()  # Impede que o restante do código de agendamento seja executado
             elif barbeiro_selecionado == "Sem preferência":
                 lucas_indisponivel = (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12) or \
-                                     (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-                                     (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[0] != "Aluizio") # Lucas não é Aluizio
+                                    (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                                    (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[0] != "Aluizio") # Lucas não é Aluizio
 
                 aluizio_indisponivel = (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiros[1] != "Lucas Borges") or \
-                                       (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-                                       (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14)
+                                    (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                                    (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14)
 
                 if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiros[0] != "Lucas Borges" and barbeiros[1] != "Lucas Borges") or \
-                   (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-                   (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
+                    (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                    (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
                     st.error("Barbeiros em horário de almoço")
                     st.stop()
 
         if nome and telefone and servicos_selecionados:
+            # Verifica se um dos serviços de visagismo foi selecionado e se o barbeiro é Lucas Borges
+            servicos_visagismo = ["Abordagem de visagismo", "Consultoria de visagismo"]
+            if any(servico in servicos_selecionados for servico in servicos_visagismo) and barbeiro_selecionado != "Lucas Borges":
+                st.error("Apenas Lucas Borges realiza atendimentos de visagismo.")
+                st.stop()
+
             if "Sem preferência" in barbeiro_selecionado:
                 # Verifica se ambos os barbeiros estão ocupados
                 if not verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiros[0]) and not verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiros[1]):
@@ -511,23 +491,13 @@ with st.form("cancelar_form"):
     st.subheader("Cancelar Agendamento")
     telefone_cancelar = st.text_input("Telefone para Cancelamento")
     data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today())
-    # A lista de horários para cancelamento agora usará a lista completa
-    dia_da_semana_cancelar = data_cancelar.weekday()
-    if dia_da_semana_cancelar < 5:
-        horarios_base_cancelamento = []
-        for h in range(8, 20):
-            for m in (0, 30):
-                if h < 11 or h >= 14:
-                    horarios_base_cancelamento.append(f"{h:02d}:{m:02d}")
-                elif h == 11 and m == 0:
-                    horarios_base_cancelamento.append(f"{h:02d}:{m:02d}")
-                elif h == 13 and m == 0:
-                    horarios_base_cancelamento.append(f"{h:02d}:{m:02d}")
-                elif h == 13 and m == 30: # Adicionando o horário das 13:30
-                    horarios_base_cancelamento.append(f"{h:02d}:{m:02d}")
-    else:
-        horarios_base_cancelamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
-    horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base_cancelamento)
+    # Geração da lista de horários completa para cancelamento
+    horarios_base_cancelamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    # Filtrar horários de almoço com base no dia da semana
+    horarios_filtrados_cancelamento = []
+    for horario in horarios_base_cancelamento:
+        horarios_filtrados.append(horario)
+    horario_cancelar = st.selectbox("Horário do Agendamento", horarios_filtrados_cancelamento)
     barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros)
     submitted_cancelar = st.form_submit_button("Cancelar Agendamento")
     if submitted_cancelar:
