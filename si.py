@@ -169,7 +169,13 @@ def verificar_disponibilidade(data, horario, barbeiro=None):
         return []
 
     agendamentos_ref = db.collection('agendamentos')
-    query = agendamentos_ref.where('data', '==', datetime.strptime(data, '%d/%m/%Y').date())
+    # Converter a string da data para um objeto datetime.datetime no início do dia
+    data_obj = datetime.strptime(data, '%d/%m/%Y')
+    data_inicio_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0)
+    data_fim_dia = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59) # Opcional, dependendo da precisão que você precisa
+
+    query = agendamentos_ref.where('data', '>=', data_inicio_dia)
+    query = query.where('data', '<=', data_fim_dia)
     query = query.where('horario', '==', horario)
     query = query.where('barbeiro', '==', barbeiro)
 
