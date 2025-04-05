@@ -340,8 +340,8 @@ for horario in horarios_tabela:
                     color_text = "white"
                 else:
                     status = '<span style="color: blue;">serviço extra (rápido)</span>'
-                    bg_color = "#ADD8E6"  # Azul claro
-                    color_text = "black"
+                    bg_color = "#000080"  # Azul escuro
+                    color_text = "white" # Alterei a cor do texto para branco
             else:
                 status = "Ocupado"
                 bg_color = "firebrick"
