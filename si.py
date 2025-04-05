@@ -102,27 +102,22 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     data_obj = datetime.strptime(data, '%d/%m/%Y')
 
     @firestore.transactional
-    def atualizar_ou_criar_agendamento(transaction):
+    def atualizar_agendamento(transaction):
         doc = agendamento_ref.get(transaction=transaction)
         if doc.exists:
-            dados_atuais = doc.to_dict()
-            servicos_atuais = dados_atuais.get('servicos', [])
-            # Adicionar os novos serviços à lista existente
-            servicos_atualizados = list(set(servicos_atuais + servicos)) # Usar set para evitar duplicados
-            transaction.update(agendamento_ref, {'servicos': servicos_atualizados})
-        else:
-            transaction.set(agendamento_ref, {
-                'nome': nome,
-                'telefone': telefone,
-                'servicos': servicos,
-                'barbeiro': barbeiro,
-                'data': data_obj,  # Salvar o objeto datetime.datetime no Firestore
-                'horario': horario
-            })
+            raise ValueError("Horário já ocupado.")
+        transaction.set(agendamento_ref, {
+            'nome': nome,
+            'telefone': telefone,
+            'servicos': servicos,
+            'barbeiro': barbeiro,
+            'data': data_obj,  # Salvar o objeto datetime.datetime no Firestore
+            'horario': horario
+        })
 
     transaction = db.transaction()
     try:
-        atualizar_ou_criar_agendamento(transaction)
+        atualizar_agendamento(transaction)
     except ValueError as e:
         st.error(f"Erro ao salvar agendamento: {e}")
     except Exception as e:
@@ -196,8 +191,7 @@ def verificar_disponibilidade(data, horario, barbeiro=None):
         doc_bloqueio = bloqueio_ref.get()
 
         if doc_agendamento.exists:
-            servicos_agendados = doc_agendamento.to_dict().get('servicos', [])
-            return servicos_agendados, False  # Retorna a lista de serviços e False (ocupado)
+            return doc_agendamento.to_dict().get('servicos'), False  # Retorna a lista de serviços e False
         elif doc_bloqueio.exists:
             return ["BLOQUEADO"], False # Retorna ["BLOQUEADO"] e False
         else:
@@ -241,46 +235,6 @@ def bloquear_horario(data, horario, barbeiro):
         'horario': horario
     })
 
-def realizar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
-    # Verifica se o horário está bloqueado
-    servicos_ocupados, disponibilidade_atual = verificar_disponibilidade(data, horario, barbeiro)
-    if disponibilidade_atual is False and "BLOQUEADO" in servicos_ocupados:
-        return f"O horário das {horario} com o barbeiro {barbeiro} já está bloqueado.", False
-
-    # Lógica para corte e barba (manter como estava)
-    if "Barba" in servicos and any(corte in servicos for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
-        if verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
-            salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro)
-            horario_seguinte = (datetime.strptime(horario, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-            bloquear_horario(data, horario_seguinte, barbeiro)
-            resumo = f"""
-                Nome: {nome}
-                Telefone: {telefone}
-                Data: {data}
-                Horário: {horario}
-                Barbeiro: {barbeiro}
-                Serviços: {', '.join(servicos)}
-                """
-            enviar_email("Agendamento Confirmado", resumo)
-            verificar_disponibilidade.clear()
-            return resumo, True
-        else:
-            horario_seguinte = (datetime.strptime(horario, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-            return f"O barbeiro {barbeiro} não poderá atender para corte e barba pois no horário seguinte ({horario_seguinte}) ele já está ocupado. Por favor, verifique outro barbeiro ou horário.", False
-    else:
-        salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro)
-        resumo = f"""
-            Nome: {nome}
-            Telefone: {telefone}
-            Data: {data}
-            Horário: {horario}
-            Barbeiro: {barbeiro}
-            Serviços: {', '.join(servicos)}
-            """
-        enviar_email("Agendamento Confirmado", resumo)
-        verificar_disponibilidade.clear()
-        return resumo, True
-
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -321,7 +275,7 @@ for h in range(8, 20):
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
     for barbeiro in barbeiros:
-        servicos_agendados, disponibilidade = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+        servicos_agendados, disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
         status = "Disponível"
         bg_color = "forestgreen"
         color_text = "white"
@@ -329,32 +283,55 @@ for horario in horarios_tabela:
         hora_int = int(horario.split(':')[0])
         minuto_int = int(horario.split(':')[1])
 
-        if servicos_agendados:
-            if "BLOQUEADO" in servicos_agendados:
-                status = "Ocupado"
-                bg_color = "firebrick"
-            elif "Pezim" in servicos_agendados:
-                if len(servicos_agendados) > 1:
-                    status = '<span style="color: blue;">Pezim + outro(s)</span>'
-                    bg_color = "firebrick" # Manter vermelho para indicar ocupação com múltiplos serviços
-                    color_text = "white"
-                else:
-                    status = '<span style="color: blue;">serviço extra (rápido)</span>'
-                    bg_color = "#000080"  # Azul escuro
-                    color_text = "white" # Alterei a cor do texto para branco
-            else:
-                status = "Ocupado"
-                bg_color = "firebrick"
-        else:
-            status = "Disponível"
-            bg_color = "forestgreen"
-
-        if dia_da_semana_tabela < 5:  # Segunda a Sexta - Lógica de almoço
+        if dia_da_semana_tabela < 5:  # Segunda a Sexta
             if (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro != "Lucas Borges") or \
-               (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
-               (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
+                (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
+                (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
                 status = "Indisponível"
                 bg_color = "orange"
+            elif (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro == "Lucas Borges"):
+                if not disponivel:
+                    if servicos_agendados and "Pezim" in servicos_agendados:
+                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
+                        bg_color = "#ADD8E6"  # Azul claro
+                        color_text = "black"
+                    else:
+                        status = "Ocupado"
+                        bg_color = "firebrick"
+            elif (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro == "Aluizio"):
+                if not disponivel:
+                    if servicos_agendados and "Pezim" in servicos_agendados:
+                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
+                        bg_color = "#ADD8E6"  # Azul claro
+                        color_text = "black"
+                    else:
+                        status = "Ocupado"
+                        bg_color = "firebrick"
+            else:
+                if not disponivel:
+                    if servicos_agendados and "Pezim" in servicos_agendados:
+                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
+                        bg_color = "#ADD8E6"  # Azul claro
+                        color_text = "black"
+                    else:
+                        status = "Ocupado"
+                        bg_color = "firebrick"
+                else:
+                    status = "Disponível"
+                    bg_color = "forestgreen"
+
+        elif dia_da_semana_tabela == 5: # Sábado - Manter a lógica original
+            if not disponivel:
+                if servicos_agendados and "Pezim" in servicos_agendados:
+                    status = '<span style="color: blue;">serviço extra (rápido)</span>'
+                    bg_color = "#ADD8E6"  # Azul claro
+                    color_text = "black"
+                else:
+                    status = "Ocupado"
+                    bg_color = "firebrick"
+            else:
+                status = "Disponível"
+                bg_color = "forestgreen"
 
         # Adicionando uma altura fixa para as células de dados
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
@@ -404,12 +381,11 @@ if submitted:
 
         if dia_da_semana_agendamento < 5:  # Segunda a Sexta
             if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiro_selecionado != "Lucas Borges") or \
-               (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-               (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
+                (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
                 st.error("Barbeiro em horário de almoço")
                 st.stop()  # Impede que o restante do código de agendamento seja executado
             elif barbeiro_selecionado == "Sem preferência":
-                # ... (a lógica para "Sem preferência" pode permanecer a mesma)
                 lucas_indisponivel = (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12) or \
                                      (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
                                      (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[0] != "Aluizio") # Lucas não é Aluizio
@@ -419,8 +395,8 @@ if submitted:
                                        (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14)
 
                 if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiros[0] != "Lucas Borges" and barbeiros[1] != "Lucas Borges") or \
-                   (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-                   (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
+                    (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                    (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
                     st.error("Barbeiros em horário de almoço")
                     st.stop()
 
@@ -440,27 +416,108 @@ if submitted:
                     barbeiros_disponiveis = [b for b in barbeiros if verificar_disponibilidade(data_agendamento, horario_agendamento, b)[1]]
                     if barbeiros_disponiveis:
                         barbeiro_selecionado = random.choice(barbeiros_disponiveis)
-                        # Agendar normalmente com o barbeiro selecionado
-                        resumo, sucesso = realizar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
-                        if sucesso:
+                        if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
+                            if verificar_disponibilidade_horario_seguinte(data_agendamento, horario_agendamento, barbeiro_selecionado):
+                                resumo = f"""
+                                Nome: {nome}
+                                Telefone: {telefone}
+                                Data: {data_agendamento}
+                                Horário: {horario_agendamento}
+                                Barbeiro: {barbeiro_selecionado}
+                                Serviços: {', '.join(servicos_selecionados)}
+                                """
+                                salvar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
+                                # Bloquear o horário seguinte para o barbeiro selecionado
+                                horario_seguinte = (datetime.strptime(horario_agendamento, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                                chave_bloqueio = f"{data_agendamento}_{horario_seguinte}_{barbeiro_selecionado}_BLOQUEADO" # Modificação aqui
+                                db.collection('agendamentos').document(chave_bloqueio).set({
+                                    'nome': "BLOQUEADO",
+                                    'telefone': "BLOQUEADO",
+                                    'servicos': ["BLOQUEADO"],
+                                    'barbeiro': barbeiro_selecionado,
+                                    'data': data_agendamento,
+                                    'horario': horario_seguinte
+                                })
+                                enviar_email("Agendamento Confirmado", resumo)
+                                verificar_disponibilidade.clear()
+                                st.success("Agendamento confirmado com sucesso! Horário seguinte bloqueado.")
+                                st.info("Resumo do agendamento:\n" + resumo)
+                                st.info(f"O horário das {horario_seguinte} de {barbeiro_selecionado} foi bloqueado.")
+                                time.sleep(5)
+                                st.rerun()
+                            else:
+                                horario_seguinte = (datetime.strptime(horario_agendamento, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                                st.error(f"O barbeiro {barbeiro_selecionado} não poderá atender para corte e barba pois no horário seguinte ({horario_seguinte}) ele já está ocupado. Por favor, verifique outro barbeiro ou horário.")
+                        else:
+                            resumo = f"""
+                            Nome: {nome}
+                            Telefone: {telefone}
+                            Data: {data_agendamento}
+                            Horário: {horario_agendamento}
+                            Barbeiro: {barbeiro_selecionado}
+                            Serviços: {', '.join(servicos_selecionados)}
+                            """
+                            salvar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
+                            enviar_email("Agendamento Confirmado", resumo)
+                            verificar_disponibilidade.clear()
                             st.success("Agendamento confirmado com sucesso!")
                             st.info("Resumo do agendamento:\n" + resumo)
                             time.sleep(5)
                             st.rerun()
-                        else:
-                            st.error(resumo)
                     else:
                         st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
             else:
-                # Agendar normalmente com o barbeiro selecionado
-                resumo, sucesso = realizar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
-                if sucesso:
-                    st.success("Agendamento confirmado com sucesso!")
-                    st.info("Resumo do agendamento:\n" + resumo)
-                    time.sleep(5)
-                    st.rerun()
+                if verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiro_selecionado)[1]:
+                    if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
+                        if verificar_disponibilidade_horario_seguinte(data_agendamento, horario_agendamento, barbeiro_selecionado):
+                            resumo = f"""
+                            Nome: {nome}
+                            Telefone: {telefone}
+                            Data: {data_agendamento}
+                            Horário: {horario_agendamento}
+                            Barbeiro: {barbeiro_selecionado}
+                            Serviços: {', '.join(servicos_selecionados)}
+                            """
+                            salvar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
+                            # Bloquear o horário seguinte para o barbeiro selecionado
+                            horario_seguinte = (datetime.strptime(horario_agendamento, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                            chave_bloqueio = f"{data_agendamento}_{horario_seguinte}_{barbeiro_selecionado}_BLOQUEADO" # Modificação aqui
+                            db.collection('agendamentos').document(chave_bloqueio).set({
+                                'nome': "BLOQUEADO",
+                                'telefone': "BLOQUEADO",
+                                'servicos': ["BLOQUEADO"],
+                                'barbeiro': barbeiro_selecionado,
+                                'data': data_agendamento,
+                                'horario': horario_seguinte
+                            })
+                            enviar_email("Agendamento Confirmado", resumo)
+                            verificar_disponibilidade.clear()
+                            st.success("Agendamento confirmado com sucesso! Horário seguinte bloqueado.")
+                            st.info("Resumo do agendamento:\n" + resumo)
+                            st.info(f"O horário das {horario_seguinte} de {barbeiro_selecionado} foi bloqueado.")
+                            time.sleep(5)
+                            st.rerun()
+                        else:
+                            horario_seguinte = (datetime.strptime(horario_agendamento, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
+                            st.error(f"O barbeiro {barbeiro_selecionado} não poderá atender para corte e barba pois no horário seguinte ({horario_seguinte}) ele já está ocupado. Por favor, verifique outro barbeiro ou horário.")
+                    else:
+                        resumo = f"""
+                        Nome: {nome}
+                        Telefone: {telefone}
+                        Data: {data_agendamento}
+                        Horário: {horario_agendamento}
+                        Barbeiro: {barbeiro_selecionado}
+                        Serviços: {', '.join(servicos_selecionados)}
+                        """
+                        salvar_agendamento(data_agendamento, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_selecionado)
+                        enviar_email("Agendamento Confirmado", resumo)
+                        verificar_disponibilidade.clear()
+                        st.success("Agendamento confirmado com sucesso!")
+                        st.info("Resumo do agendamento:\n" + resumo)
+                        time.sleep(5)
+                        st.rerun()
                 else:
-                    st.error(resumo)
+                    st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário ou veja outro barbeiro.")
         else:
             st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
 
@@ -491,13 +548,13 @@ with st.form("cancelar_form"):
 
         if cancelado is not None:
             resumo_cancelamento = f"""
-                Nome: {cancelado['nome']}
-                Telefone: {cancelado['telefone']}
-                Data: {cancelado['data']}
-                Horário: {cancelado['horario']}
-                Barbeiro: {cancelado['barbeiro']}
-                Serviços: {', '.join(cancelado['servicos'])}
-                """
+            Nome: {cancelado['nome']}
+            Telefone: {cancelado['telefone']}
+            Data: {cancelado['data']}
+            Horário: {cancelado['horario']}
+            Barbeiro: {cancelado['barbeiro']}
+            Serviços: {', '.join(cancelado['servicos'])}
+            """
             enviar_email("Agendamento Cancelado", resumo_cancelamento)
             verificar_disponibilidade.clear()
             st.success("Agendamento cancelado com sucesso!")
