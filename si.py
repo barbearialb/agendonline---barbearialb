@@ -102,22 +102,27 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
     data_obj = datetime.strptime(data, '%d/%m/%Y')
 
     @firestore.transactional
-    def atualizar_agendamento(transaction):
+    def atualizar_ou_criar_agendamento(transaction):
         doc = agendamento_ref.get(transaction=transaction)
         if doc.exists:
-            raise ValueError("Horário já ocupado.")
-        transaction.set(agendamento_ref, {
-            'nome': nome,
-            'telefone': telefone,
-            'servicos': servicos,
-            'barbeiro': barbeiro,
-            'data': data_obj,  # Salvar o objeto datetime.datetime no Firestore
-            'horario': horario
-        })
+            dados_atuais = doc.to_dict()
+            servicos_atuais = dados_atuais.get('servicos', [])
+            # Adicionar os novos serviços à lista existente
+            servicos_atualizados = list(set(servicos_atuais + servicos)) # Usar set para evitar duplicados
+            transaction.update(agendamento_ref, {'servicos': servicos_atualizados})
+        else:
+            transaction.set(agendamento_ref, {
+                'nome': nome,
+                'telefone': telefone,
+                'servicos': servicos,
+                'barbeiro': barbeiro,
+                'data': data_obj,  # Salvar o objeto datetime.datetime no Firestore
+                'horario': horario
+            })
 
     transaction = db.transaction()
     try:
-        atualizar_agendamento(transaction)
+        atualizar_ou_criar_agendamento(transaction)
     except ValueError as e:
         st.error(f"Erro ao salvar agendamento: {e}")
     except Exception as e:
@@ -191,7 +196,11 @@ def verificar_disponibilidade(data, horario, barbeiro=None):
         doc_bloqueio = bloqueio_ref.get()
 
         if doc_agendamento.exists:
-            return doc_agendamento.to_dict().get('servicos'), False  # Retorna a lista de serviços e False
+            servicos_agendados = doc_agendamento.to_dict().get('servicos')
+            if servicos_agendados and "Pezim" in servicos_agendados:
+                return servicos_agendados, "pezim_ocupado"  # Retorna o serviço e um status especial
+            else:
+                return servicos_agendados, False  # Retorna a lista de serviços e False
         elif doc_bloqueio.exists:
             return ["BLOQUEADO"], False # Retorna ["BLOQUEADO"] e False
         else:
@@ -275,7 +284,7 @@ for h in range(8, 20):
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
     for barbeiro in barbeiros:
-        servicos_agendados, disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+        servicos_agendados, disponibilidade = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
         status = "Disponível"
         bg_color = "forestgreen"
         color_text = "white"
@@ -285,43 +294,50 @@ for horario in horarios_tabela:
 
         if dia_da_semana_tabela < 5:  # Segunda a Sexta
             if (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro != "Lucas Borges") or \
-                (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
-                (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
+               (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
+               (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
                 status = "Indisponível"
                 bg_color = "orange"
             elif (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro == "Lucas Borges"):
-                if not disponivel:
-                    if servicos_agendados and "Pezim" in servicos_agendados:
-                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
-                        bg_color = "#ADD8E6"  # Azul claro
-                        color_text = "black"
-                    else:
-                        status = "Ocupado"
-                        bg_color = "firebrick"
+                if disponibilidade == "pezim_ocupado":
+                    status = '<span style="color: blue;">Pezim agendado</span><br><span style="font-size: 0.8em;">Disponível para outro Pezim ou serviço rápido</span>'
+                    bg_color = "#ADD8E6"  # Azul claro
+                    color_text = "black"
+                elif not disponibilidade:
+                    status = "Ocupado"
+                    bg_color = "firebrick"
+                else:
+                    status = "Disponível"
+                    bg_color = "forestgreen"
             elif (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro == "Aluizio"):
-                if not disponivel:
-                    if servicos_agendados and "Pezim" in servicos_agendados:
-                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
-                        bg_color = "#ADD8E6"  # Azul claro
-                        color_text = "black"
-                    else:
-                        status = "Ocupado"
-                        bg_color = "firebrick"
+                if disponibilidade == "pezim_ocupado":
+                    status = '<span style="color: blue;">Pezim agendado</span><br><span style="font-size: 0.8em;">Disponível para outro Pezim ou serviço rápido</span>'
+                    bg_color = "#ADD8E6"  # Azul claro
+                    color_text = "black"
+                elif not disponibilidade:
+                    status = "Ocupado"
+                    bg_color = "firebrick"
+                else:
+                    status = "Disponível"
+                    bg_color = "forestgreen"
             else:
-                if not disponivel:
-                    if servicos_agendados and "Pezim" in servicos_agendados:
-                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
-                        bg_color = "#ADD8E6"  # Azul claro
-                        color_text = "black"
-                    else:
-                        status = "Ocupado"
-                        bg_color = "firebrick"
+                if disponibilidade == "pezim_ocupado":
+                    status = '<span style="color: blue;">Pezim agendado</span><br><span style="font-size: 0.8em;">Disponível para outro Pezim ou serviço rápido</span>'
+                    bg_color = "#ADD8E6"  # Azul claro
+                    color_text = "black"
+                elif not disponibilidade:
+                    status = "Ocupado"
+                    bg_color = "firebrick"
                 else:
                     status = "Disponível"
                     bg_color = "forestgreen"
 
-        elif dia_da_semana_tabela == 5: # Sábado - Manter a lógica original
-            if not disponivel:
+        elif dia_da_semana_tabela == 5: # Sábado - Manter a lógica original com a adição do pezim_ocupado
+            if disponibilidade == "pezim_ocupado":
+                status = '<span style="color: blue;">Pezim agendado</span><br><span style="font-size: 0.8em;">Disponível para outro Pezim ou serviço rápido</span>'
+                bg_color = "#ADD8E6"  # Azul claro
+                color_text = "black"
+            elif not disponibilidade:
                 if servicos_agendados and "Pezim" in servicos_agendados:
                     status = '<span style="color: blue;">serviço extra (rápido)</span>'
                     bg_color = "#ADD8E6"  # Azul claro
@@ -381,8 +397,8 @@ if submitted:
 
         if dia_da_semana_agendamento < 5:  # Segunda a Sexta
             if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiro_selecionado != "Lucas Borges") or \
-                (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-                (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
+               (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+               (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
                 st.error("Barbeiro em horário de almoço")
                 st.stop()  # Impede que o restante do código de agendamento seja executado
             elif barbeiro_selecionado == "Sem preferência":
@@ -395,10 +411,26 @@ if submitted:
                                        (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14)
 
                 if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiros[0] != "Lucas Borges" and barbeiros[1] != "Lucas Borges") or \
-                    (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-                    (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
+                   (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                   (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
                     st.error("Barbeiros em horário de almoço")
                     st.stop()
+
+        # Adicione esta condição para verificar se o horário está ocupado por Pezim
+        servicos_ocupados, disponibilidade_atual = verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiro_selecionado)
+        servicos_permitidos = ["Tradicional", "Social", "Barba", "Pezim"]
+
+        if disponibilidade_atual is False and servicos_ocupados and "Pezim" in servicos_ocupados:
+            # O horário está ocupado por Pezim, verificar se o novo serviço é permitido
+            if all(servico in servicos_permitidos for servico in servicos_selecionados):
+                # Permitir o agendamento, mas precisamos atualizar o Firestore
+                pass  # Vamos lidar com a atualização do Firestore no próximo passo
+            else:
+                st.error("Este horário já está ocupado com Pezim e não permite o agendamento dos serviços selecionados (exceto Pezim, Tradicional, Social e Barba).")
+                st.stop()
+        elif disponibilidade_atual is False:
+            st.error("O horário escolhido já está ocupado. Por favor, selecione outro horário ou veja outro barbeiro.")
+            st.stop()
 
         if nome and telefone and servicos_selecionados:
             # Verifica se um dos serviços de visagismo foi selecionado e se o barbeiro é Lucas Borges
@@ -467,7 +499,8 @@ if submitted:
                     else:
                         st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
             else:
-                if verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiro_selecionado)[1]:
+                if verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiro_selecionado)[1] or \
+                   (disponibilidade_atual is False and servicos_ocupados and "Pezim" in servicos_ocupados and all(servico in servicos_permitidos for servico in servicos_selecionados)):
                     if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                         if verificar_disponibilidade_horario_seguinte(data_agendamento, horario_agendamento, barbeiro_selecionado):
                             resumo = f"""
