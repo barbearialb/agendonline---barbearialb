@@ -532,7 +532,7 @@ if submitted:
                 if acao_necessaria == "CRIAR":
                     # Chama a função original para criar (ela retorna True/False)
                     sucesso = salvar_agendamento(data_agendamento_str, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_final)
-                    if not sucesso: erro = True # Erro já é mostrado por salvar_agendamento
+                    
 
                 elif acao_necessaria == "ATUALIZAR_PARA_DUPLO_PEZIM":
                     try: # Atualiza para ["Pezim", "Pezim"]
@@ -572,9 +572,6 @@ if submitted:
             st.error(mensagem_erro)
         elif erro: # Caso genérico de erro sem mensagem específica
              st.error("Não foi possível realizar o agendamento devido a um erro.")
-        else:
-    # Mantém o erro original se os campos não foram preenchidos
-            st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
 
 # Aba de Cancelamento
 with st.form("cancelar_form"): # Início do formulário
