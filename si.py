@@ -329,34 +329,32 @@ for horario in horarios_tabela:
         hora_int = int(horario.split(':')[0])
         minuto_int = int(horario.split(':')[1])
 
-        if dia_da_semana_tabela < 5:  # Segunda a Sexta
+        if servicos_agendados:
+            if "BLOQUEADO" in servicos_agendados:
+                status = "Ocupado"
+                bg_color = "firebrick"
+            elif "Pezim" in servicos_agendados:
+                if len(servicos_agendados) > 1:
+                    status = '<span style="color: blue;">Pezim + outro(s)</span>'
+                    bg_color = "firebrick" # Manter vermelho para indicar ocupação com múltiplos serviços
+                    color_text = "white"
+                else:
+                    status = '<span style="color: blue;">serviço extra (rápido)</span>'
+                    bg_color = "#ADD8E6"  # Azul claro
+                    color_text = "black"
+            else:
+                status = "Ocupado"
+                bg_color = "firebrick"
+        else:
+            status = "Disponível"
+            bg_color = "forestgreen"
+
+        if dia_da_semana_tabela < 5:  # Segunda a Sexta - Lógica de almoço
             if (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro != "Lucas Borges") or \
                (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
                (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
                 status = "Indisponível"
                 bg_color = "orange"
-            elif servicos_agendados:
-                if "BLOQUEADO" in servicos_agendados:
-                    status = "Ocupado"
-                    bg_color = "firebrick"
-                else:
-                    status = "Ocupado"
-                    bg_color = "firebrick"
-            else:
-                status = "Disponível"
-                bg_color = "forestgreen"
-
-        elif dia_da_semana_tabela == 5: # Sábado
-            if servicos_agendados:
-                if "BLOQUEADO" in servicos_agendados:
-                    status = "Ocupado"
-                    bg_color = "firebrick"
-                else:
-                    status = "Ocupado"
-                    bg_color = "firebrick"
-            else:
-                status = "Disponível"
-                bg_color = "forestgreen"
 
         # Adicionando uma altura fixa para as células de dados
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
