@@ -16,7 +16,9 @@ st.markdown(
     <style>
         table {
             display: block !important;
-            width: fit-content !important; /* Ou tente width: -webkit-fill-available !important; */
+            width: fit-content !important;
+            /* Ou tente width: 100% !important; se fit-content não funcionar bem com larguras de coluna */
+            /* table-layout: fixed; /* Adicionar isso PODE ajudar a forçar larguras */
         }
         div[data-testid="stForm"] {
             display: block !important;
@@ -24,7 +26,16 @@ st.markdown(
         .status-disponivel { background-color: forestgreen; color: white; }
         .status-ocupado { background-color: firebrick; color: white; }
         .status-indisponivel { background-color: orange; color: white; }
-        .status-extra { background-color: #1E90FF; color: white; } /* Azul para Pezim */
+        .status-extra { background-color: #1E90FF; color: white; }
+
+        /* >>> ADICIONE ESTA REGRA <<< */
+        th.barber-col {
+            width: 40%; /* Ajuste esta porcentagem se necessário */
+            text-align: center; /* Centraliza o nome do barbeiro */
+        }
+        /* Opcional: Ajustar a coluna do Horário se precisar */
+        /* th:first-child { width: 20%; } */
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -304,9 +315,11 @@ data_para_tabela = data_agendamento_obj.strftime('%d/%m/%Y')  # Formatar o objet
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
 
+# Na seção de geração da tabela HTML:
 html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
 for barbeiro in barbeiros:
-    html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
+    # Adiciona a classe 'barber-col' aqui
+    html_table += f'<th class="barber-col" style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
 html_table += '</tr>'
 
 data_obj_tabela = data_agendamento_obj
@@ -573,11 +586,9 @@ if submitted:
             st.error(mensagem_erro)
         elif erro: # Caso genérico de erro sem mensagem específica
              st.error("Não foi possível realizar o agendamento devido a um erro.")
-
-# Este 'else' corresponde ao 'if not nome or not telefone...' inicial
-else:
+        else:
     # Mantém o erro original se os campos não foram preenchidos
-    st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
+            st.error("Por favor, preencha todos os campos e selecione pelo menos 1 serviço.")
 
 # Aba de Cancelamento
 with st.form("cancelar_form"): # Início do formulário
