@@ -467,7 +467,7 @@ if submitted:
                     else: st.success("Agendamento confirmado!")
                     st.info(f"Resumo: {resumo}")
                     enviar_email("Agendamento Confirmado/Atualizado", resumo)
-                    verificar_disponibilidade.clear(); time.sleep(5); st.rerun()
+                    verificar_disponibilidade.clear(); time.sleep(10); st.rerun()
 
         # 7. Exibir Erro Final (se 'erro' foi True ANTES da ação no DB)
         if erro and mensagem_erro:
