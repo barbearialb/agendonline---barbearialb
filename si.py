@@ -109,12 +109,58 @@ def enviar_email(assunto, mensagem):
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
 
-def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
+# Substitua a função salvar_agendamento inteira por esta:
+def salvar_agendamento(data, horario, nome, telefone, servicos_lista, barbeiro):
     chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+    try:
+        data_obj = datetime.strptime(data, '%d/%m/%Y')
+    except ValueError:
+        st.error(f"Formato de data inválido ao salvar: {data}")
+        return False # Retorna False em caso de erro de data
 
-    # Converter a string de data para um objeto datetime.datetime
-    data_obj = datetime.strptime(data, '%d/%m/%Y')
+    # Define a função transacional interna
+    @firestore.transactional
+    def _transacao_salvar(transaction, ref, dados):
+        doc = ref.get(transaction=transaction)
+        if doc.exists:
+            # Esta verificação é uma segurança extra.
+            raise ValueError("Horário já ocupado (verificação transacional).")
+        transaction.set(ref, dados)
+
+    # Prepara os dados
+    dados_agendamento = {
+        'nome': nome,
+        'telefone': telefone,
+        'servicos': servicos_lista,
+        'barbeiro': barbeiro,
+        'data': data_obj,
+        'horario': horario,
+        'timestamp_criacao': firestore.SERVER_TIMESTAMP # Boa prática adicionar timestamp
+    }
+
+    # Executa a transação
+    transaction = db.transaction()
+    try:
+        _transacao_salvar(transaction, agendamento_ref, dados_agendamento)
+        return True # <<<--- RETORNA True EM CASO DE SUCESSO
+    except ValueError as e:
+        # Erro específico (horário ocupado detectado pela transação)
+        # Não precisa de st.error aqui, pois a lógica principal deve tratar
+        print(f"Aviso: Transação detectou horário ocupado para {chave_agendamento}: {e}")
+        # Podemos querer que a lógica principal mostre o erro se essa exceção ocorrer.
+        # Mas para a função, indica falha.
+        # Se a lógica principal já verificou, essa exceção não deve ocorrer.
+        # Caso ocorra, é um erro de concorrência.
+        # Para simplificar, vamos retornar False e deixar a lógica principal lidar.
+        return False
+        # OU, se quiser que a exceção pare o fluxo e mostre o erro:
+        # st.error(f"Erro de concorrência ao salvar: {e}")
+        # return False
+    except Exception as e:
+        st.error(f"Erro inesperado na transação ao salvar agendamento: {e}")
+        st.exception(e) # Loga o traceback completo
+        return False # <<<--- RETORNA False EM CASO DE ERRO
 
     @firestore.transactional
     def atualizar_agendamento(transaction):
@@ -532,7 +578,6 @@ if submitted:
                 if acao_necessaria == "CRIAR":
                     # Chama a função original para criar (ela retorna True/False)
                     sucesso = salvar_agendamento(data_agendamento_str, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_final)
-                    
 
                 elif acao_necessaria == "ATUALIZAR_PARA_DUPLO_PEZIM":
                     try: # Atualiza para ["Pezim", "Pezim"]
