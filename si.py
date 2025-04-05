@@ -338,44 +338,28 @@ for horario in horarios_tabela:
         # 1. Verificar Horário de Almoço
         em_almoco = False
         if dia_da_semana_tabela < 5: # Segunda a Sexta
-             if barbeiro == "Lucas Borges" and hora_int == 12: em_almoco = True
-             elif barbeiro == "Aluizio" and hora_int == 13: em_almoco = True
+            # Horários de almoço do Lucas: 12:00, 12:30, 13:00, 13:30 (hora_int == 12 ou 13)
+            if barbeiro == "Lucas Borges" and (hora_int == 12 or hora_int == 13):
+                em_almoco = True
+            # Horários de almoço do Aluizio: 11:00, 11:30, 12:00, 12:30 (hora_int == 11 ou 12)
+            elif barbeiro == "Aluizio" and (hora_int == 11 or hora_int == 12):
+                em_almoco = True
 
         if em_almoco:
             status_texto = "Indisponível"
             status_classe_css = "status-indisponivel"
         else:
-            # 2. Verificar Agendamento/Bloqueio usando a função modificada
+            # 2. Verificar Agendamento/Bloqueio (lógica existente)
             status = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
-
-            if status is None: # Livre
-                status_texto = "Disponível"
-                status_classe_css = "status-disponivel"
-            elif status == "BLOQUEADO":
-                status_texto = "Indisponível" # Ou "Bloqueado"
-                status_classe_css = "status-indisponivel"
-            elif isinstance(status, dict): # Agendamento existe
-                servicos_no_horario = status.get('servicos', [])
-                # NOVA LÓGICA: Azul apenas para UM Pezim, Vermelho para DOIS Pezins ou Outros
-                if servicos_no_horario == ["Pezim"]: # Exatamente UM Pezim
-                    status_texto = "Serviço extra (rápido)"
-                    status_classe_css = "status-extra" # Azul
-                # elif servicos_no_horario == ["Pezim", "Pezim"]: # Exatamente DOIS Pezins
-                #     status_texto = "Ocupado"
-                #     status_classe_css = "status-ocupado" # Vermelho
-                # else: # Qualquer outra combinação (Pezim + Outro, só Outro, dois Pezins)
-                #     status_texto = "Ocupado"
-                #     status_classe_css = "status-ocupado" # Vermelho
-                # Simplificação: Se não for exatamente um Pezim, está ocupado
-                else:
-                     status_texto = "Ocupado"
-                     status_classe_css = "status-ocupado" # Vermelho para 2 Pezins ou outras combinações
-
-            else: # Erro retornado pela função
-                 status_texto = f"Erro ({status})"
-                 status_classe_css = "status-indisponivel"
-
-
+            # ... (resto da lógica if/elif/else para status Livre, Bloqueado, Pezim, Ocupado) ...
+            if status is None: status_texto = "Disponível"; status_classe_css = "status-disponivel"
+            elif status == "BLOQUEADO": status_texto = "Indisponível"; status_classe_css = "status-indisponivel"
+            elif isinstance(status, dict):
+                 servicos_no_horario = status.get('servicos', [])
+                 if servicos_no_horario == ["Pezim"]: status_texto = "Serviço extra (rápido)"; status_classe_css = "status-extra"
+                 else: status_texto = "Ocupado"; status_classe_css = "status-ocupado"
+            else: status_texto = f"Erro ({status})"; status_classe_css = "status-indisponivel"
+            
         html_table += f'<td class="{status_classe_css}" style="padding: 8px; border: 1px solid #ddd; text-align: center; height: 30px;">{status_texto}</td>'
 
 html_table += '</tr>'
@@ -475,8 +459,10 @@ if submitted:
                           hora_agendamento_int = int(horario_agendamento.split(':')[0])
                           em_almoco_barbeiro = False
                           if dia_da_semana_agendamento < 5: # Segunda a Sexta
-                               if b == "Lucas Borges" and hora_agendamento_int == 12: em_almoco_barbeiro = True
-                               elif b == "Aluizio" and hora_agendamento_int == 13: em_almoco_barbeiro = True
+                               if b == "Lucas Borges" and hora_agendamento_int == 12 or hora_agendamento_int == 13:
+                                em_almoco_barbeiro = True
+                               elif b == "Aluizio" and hora_agendamento_int == 11 or hora_agendamento_int == 12:
+                                em_almoco_barbeiro = True
                           if em_almoco_barbeiro:
                                status_horario_escolhido = "ALMOÇO"; continue # Marca e tenta próximo
 
