@@ -95,33 +95,62 @@ def enviar_email(assunto, mensagem):
         st.error(f"Erro ao enviar e-mail: {e}")
 
 def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
-    chave_agendamento = f"{data}_{horario}_{barbeiro}"
-    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+    chave_agendamento_base = f"{data}_{horario}_{barbeiro}"
 
     # Converter a string de data para um objeto datetime.datetime
     data_obj = datetime.strptime(data, '%d/%m/%Y')
 
-    @firestore.transactional
-    def atualizar_agendamento(transaction):
-        doc = agendamento_ref.get(transaction=transaction)
-        if doc.exists:
-            raise ValueError("Horário já ocupado.")
-        transaction.set(agendamento_ref, {
-            'nome': nome,
-            'telefone': telefone,
-            'servicos': servicos,
-            'barbeiro': barbeiro,
-            'data': data_obj,  # Salvar o objeto datetime.datetime no Firestore
-            'horario': horario
-        })
+    if "Pezim" in servicos:
+        # Verificar quantos agendamentos de 'Pezim' já existem neste horário e barbeiro
+        query = db.collection('agendamentos').where('data', '==', data_obj).where('horario', '==', horario).where('barbeiro', '==', barbeiro).where('servicos', 'array_contains', "Pezim")
+        pezim_agendados = len(query.get())
 
-    transaction = db.transaction()
-    try:
-        atualizar_agendamento(transaction)
-    except ValueError as e:
-        st.error(f"Erro ao salvar agendamento: {e}")
-    except Exception as e:
-        st.error(f"Erro inesperado ao salvar agendamento: {e}")
+        if pezim_agendados < 2:
+            chave_agendamento = f"{data}_{horario}_{barbeiro}_{random.randint(1000, 9999)}" # Adiciona um sufixo para permitir múltiplos agendamentos
+            agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+            try:
+                agendamento_ref.set({
+                    'nome': nome,
+                    'telefone': telefone,
+                    'servicos': servicos,
+                    'barbeiro': barbeiro,
+                    'data': data_obj,
+                    'horario': horario
+                })
+                return True
+            except Exception as e:
+                st.error(f"Erro ao salvar agendamento de Pezim: {e}")
+                return False
+        else:
+            st.error("Horário já ocupado para dois serviços Pezim.")
+            return False
+    else:
+        agendamento_ref = db.collection('agendamentos').document(chave_agendamento_base)
+
+        @firestore.transactional
+        def atualizar_agendamento(transaction):
+            doc = agendamento_ref.get(transaction=transaction)
+            if doc.exists:
+                raise ValueError("Horário já ocupado.")
+            transaction.set(agendamento_ref, {
+                'nome': nome,
+                'telefone': telefone,
+                'servicos': servicos,
+                'barbeiro': barbeiro,
+                'data': data_obj,
+                'horario': horario
+            })
+
+        transaction = db.transaction()
+        try:
+            atualizar_agendamento(transaction)
+            return True
+        except ValueError as e:
+            st.error(f"Erro ao salvar agendamento: {e}")
+            return False
+        except Exception as e:
+            st.error(f"Erro inesperado ao salvar agendamento: {e}")
+            return False
 
 # Função para cancelar agendamento no Firestore
 def cancelar_agendamento(data, horario, telefone, barbeiro):
@@ -176,13 +205,11 @@ def desbloquear_horario(data, horario, barbeiro):
 def verificar_disponibilidade(data, horario, barbeiro=None):
     if not db:
         st.error("Firestore não inicializado.")
-        return None, False  # Retorna None para serviço e False para disponibilidade
+        return None  # Retorna None se o Firestore não estiver inicializado
 
-    # Verificar agendamento regular
     chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
 
-    # Verificar horário bloqueado
     chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
     bloqueio_ref = db.collection('agendamentos').document(chave_bloqueio)
 
@@ -190,19 +217,29 @@ def verificar_disponibilidade(data, horario, barbeiro=None):
         doc_agendamento = agendamento_ref.get()
         doc_bloqueio = bloqueio_ref.get()
 
+        servicos_agendados = []
         if doc_agendamento.exists:
-            return doc_agendamento.to_dict().get('servicos'), False  # Retorna a lista de serviços e False
-        elif doc_bloqueio.exists:
-            return ["BLOQUEADO"], False # Retorna ["BLOQUEADO"] e False
-        else:
-            return None, True  # Retorna None para serviço e True para disponibilidade
+            servicos_agendados.append(doc_agendamento.to_dict().get('servicos'))
+        if doc_bloqueio.exists:
+            return ["BLOQUEADO"] # Retorna ["BLOQUEADO"] para indicar bloqueio
+
+        # Buscar todos os agendamentos para este horário e barbeiro
+        query = db.collection('agendamentos').where('data', '==', datetime.strptime(data, '%d/%m/%Y')).where('horario', '==', horario).where('barbeiro', '==', barbeiro)
+        resultados = query.get()
+        todos_servicos = []
+        for doc in resultados:
+            agendamento = doc.to_dict()
+            if 'servicos' in agendamento:
+                todos_servicos.extend(agendamento['servicos'])
+
+        return todos_servicos
 
     except google.api_core.exceptions.RetryError as e:
         st.error(f"Erro de conexão com o Firestore: {e}")
-        return None, False
+        return None
     except Exception as e:
         st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
-        return None, False
+        return None
 
 # Função para verificar disponibilidade do horário e do horário seguinte
 @retry.Retry()
@@ -271,11 +308,11 @@ for h in range(8, 20):
         horario_str = f"{h:02d}:{m:02d}"
         horarios_tabela.append(horario_str)
 
-# MODIFICAÇÃO INÍCIO: Loop da tabela de disponibilidade
+# Loop da tabela de disponibilidade
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
     for barbeiro in barbeiros:
-        servicos_agendados, disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+        servicos_agendados = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
         status = "Disponível"
         bg_color = "forestgreen"
         color_text = "white"
@@ -285,58 +322,46 @@ for horario in horarios_tabela:
 
         if dia_da_semana_tabela < 5:  # Segunda a Sexta
             if (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro != "Lucas Borges") or \
-                (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
-                (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
+               (hora_int == 12 and minuto_int >= 0 and hora_int < 13) or \
+               (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro != "Aluizio"):
                 status = "Indisponível"
                 bg_color = "orange"
-            elif (hora_int == 11 and minuto_int >= 0 and hora_int < 12 and barbeiro == "Lucas Borges"):
-                if not disponivel:
-                    if servicos_agendados and "Pezim" in servicos_agendados:
-                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
-                        bg_color = "#ADD8E6"  # Azul claro
-                        color_text = "black"
-                    else:
-                        status = "Ocupado"
-                        bg_color = "firebrick"
-            elif (hora_int == 13 and minuto_int >= 0 and hora_int < 14 and barbeiro == "Aluizio"):
-                if not disponivel:
-                    if servicos_agendados and "Pezim" in servicos_agendados:
-                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
-                        bg_color = "#ADD8E6"  # Azul claro
-                        color_text = "black"
-                    else:
-                        status = "Ocupado"
-                        bg_color = "firebrick"
+            elif servicos_agendados == ["BLOQUEADO"]:
+                status = "Indisponível"
+                bg_color = "orange"
             else:
-                if not disponivel:
-                    if servicos_agendados and "Pezim" in servicos_agendados:
-                        status = '<span style="color: blue;">serviço extra (rápido)</span>'
-                        bg_color = "#ADD8E6"  # Azul claro
-                        color_text = "black"
-                    else:
-                        status = "Ocupado"
-                        bg_color = "firebrick"
+                count_pezim = servicos_agendados.count(['Pezim'])
+                if count_pezim == 1:
+                    status = '<span style="color: blue;">serviço extra (rápido)</span>'
+                    bg_color = "#ADD8E6"  # Azul claro
+                    color_text = "black"
+                elif count_pezim >= 2 or any(servico != ['Pezim'] for servico in servicos_agendados if servico is not None):
+                    status = "Ocupado"
+                    bg_color = "firebrick"
                 else:
                     status = "Disponível"
                     bg_color = "forestgreen"
 
-        elif dia_da_semana_tabela == 5: # Sábado - Manter a lógica original
-            if not disponivel:
-                if servicos_agendados and "Pezim" in servicos_agendados:
+        elif dia_da_semana_tabela == 5: # Sábado - Manter a lógica original com adaptações
+            if servicos_agendados == ["BLOQUEADO"]:
+                status = "Indisponível"
+                bg_color = "orange"
+            else:
+                count_pezim = servicos_agendados.count(['Pezim'])
+                if count_pezim == 1:
                     status = '<span style="color: blue;">serviço extra (rápido)</span>'
                     bg_color = "#ADD8E6"  # Azul claro
                     color_text = "black"
-                else:
+                elif count_pezim >= 2 or any(servico != ['Pezim'] for servico in servicos_agendados if servico is not None):
                     status = "Ocupado"
                     bg_color = "firebrick"
-            else:
-                status = "Disponível"
-                bg_color = "forestgreen"
+                else:
+                    status = "Disponível"
+                    bg_color = "forestgreen"
 
         # Adicionando uma altura fixa para as células de dados
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
     html_table += '</tr>'
-# MODIFICAÇÃO FIM
 
 html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
@@ -381,8 +406,8 @@ if submitted:
 
         if dia_da_semana_agendamento < 5:  # Segunda a Sexta
             if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiro_selecionado != "Lucas Borges") or \
-                (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-                (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
+               (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+               (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiro_selecionado != "Aluizio"):
                 st.error("Barbeiro em horário de almoço")
                 st.stop()  # Impede que o restante do código de agendamento seja executado
             elif barbeiro_selecionado == "Sem preferência":
@@ -395,8 +420,8 @@ if submitted:
                                        (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14)
 
                 if (hora_agendamento_int == 11 and minuto_agendamento_int >= 0 and hora_agendamento_int < 12 and barbeiros[0] != "Lucas Borges" and barbeiros[1] != "Lucas Borges") or \
-                    (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
-                    (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
+                   (hora_agendamento_int == 12 and minuto_agendamento_int >= 0 and hora_agendamento_int < 13) or \
+                   (hora_agendamento_int == 13 and minuto_agendamento_int >= 0 and hora_agendamento_int < 14 and barbeiros[1] != "Aluizio" and barbeiros[0] != "Aluizio"):
                     st.error("Barbeiros em horário de almoço")
                     st.stop()
 
@@ -409,11 +434,11 @@ if submitted:
 
             if "Sem preferência" in barbeiro_selecionado:
                 # Verifica se ambos os barbeiros estão ocupados
-                if not verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiros[0])[1] and not verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiros[1])[1]:
+                if not verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiros[0]) and not verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiros[1]):
                     st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
                 else:
                     # Seleciona um barbeiro aleatoriamente que esteja disponível
-                    barbeiros_disponiveis = [b for b in barbeiros if verificar_disponibilidade(data_agendamento, horario_agendamento, b)[1]]
+                    barbeiros_disponiveis = [b for b in barbeiros if not verificar_disponibilidade(data_agendamento, horario_agendamento, b)]
                     if barbeiros_disponiveis:
                         barbeiro_selecionado = random.choice(barbeiros_disponiveis)
                         if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
@@ -467,7 +492,7 @@ if submitted:
                     else:
                         st.error("Horário indisponível para todos os barbeiros. Por favor, selecione outro horário.")
             else:
-                if verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiro_selecionado)[1]:
+                if not verificar_disponibilidade(data_agendamento, horario_agendamento, barbeiro_selecionado):
                     if "Barba" in servicos_selecionados and any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"]):
                         if verificar_disponibilidade_horario_seguinte(data_agendamento, horario_agendamento, barbeiro_selecionado):
                             resumo = f"""
