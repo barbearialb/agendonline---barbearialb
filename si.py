@@ -635,14 +635,14 @@ if submitted:
                 # Monta o resumo com os dados retornados pela função de salvar
                 resumo = f"""
                 Resumo do Agendamento:
-                -------------------------
+                
                 Nome: {dados_salvos.get('nome', 'N/A')}
                 Telefone: {dados_salvos.get('telefone', 'N/A')}
                 Data: {data_agendamento}
                 Horário: {horario_agendamento}
                 Barbeiro: {barbeiro_final}
                 Serviços: {', '.join(dados_salvos.get('servicos', []))}
-                -------------------------
+                
                 """
 
                 # Envia o e-mail de confirmação
@@ -711,14 +711,14 @@ with st.form("cancelar_form"):
                 # Formata o resumo usando .get() para segurança caso alguma chave falte
                 resumo_cancelamento = f"""
                 Agendamento Cancelado:
-                -------------------------
+                
                 Nome: {agendamento_cancelado_dados.get('nome', 'N/A')}
                 Telefone: {agendamento_cancelado_dados.get('telefone', 'N/A')}
-                Data: {agendamento_cancelado_dados.get('data', 'N/A')}  # Assumindo que a func retorna no formato desejado
+                Data: {agendamento_cancelado_dados.get('data', 'N/A')}
                 Horário: {agendamento_cancelado_dados.get('horario', 'N/A')}
                 Barbeiro: {agendamento_cancelado_dados.get('barbeiro', 'N/A')}
                 Serviços: {', '.join(agendamento_cancelado_dados.get('servicos', []))}
-                -------------------------
+            
                 """
                 enviar_email("Agendamento Cancelado", resumo_cancelamento)
 
