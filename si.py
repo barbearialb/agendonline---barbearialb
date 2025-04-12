@@ -266,7 +266,7 @@ def obter_estado_horario(data, horario, barbeiro):
     try:
         doc_bloqueio = bloqueio_ref.get()
         if doc_bloqueio.exists:
-            return ESTADO_INDISPONIVEL, None # Horário bloqueado explicitamente
+            return ESTADO_OCUPADO, None # Horário bloqueado explicitamente
 
         doc_agendamento = agendamento_ref.get()
         if doc_agendamento.exists:
@@ -769,4 +769,3 @@ with st.form("cancelar_form"):
                 # Mensagem de erro mais detalhada
                 st.error("Nenhum agendamento encontrado para a combinação exata de telefone, data, horário e barbeiro informada.")
                 st.info("Dica: Verifique se todos os dados digitados estão corretos e correspondem exatamente aos do agendamento original.")
-                
