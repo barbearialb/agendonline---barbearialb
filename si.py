@@ -160,6 +160,17 @@ def salvar_ou_atualizar_agendamento(data, horario, nome, telefone, servicos_novo
             servicos_realmente_adicionados = [s for s in servicos_novos if s not in servicos_existentes]
             if any(s in SERVICOS_BLOQUEADOS_COM_PEZIM for s in servicos_realmente_adicionados):
                  raise ValueError(f"Com o {PEZIM}, só pode agendar {', '.join(SERVICOS_PERMITIDOS_COM_PEZIM)}")
+            
+             # --- MODIFICAÇÃO AQUI ---
+            # Atualizar o agendamento para Ocupado e guardar dados do cliente 2
+            dados_para_atualizar = {
+                'servicos': servicos_combinados, # Lista com todos os serviços
+                'status_horario': ESTADO_OCUPADO, # Mudar status para ocupado
+                # Guardar os dados do NOVO cliente (cliente 2)
+                'nome_cliente2': nome,
+                'telefone_cliente2': telefone,
+                'servicos_cliente2': servicos_novos # Guarda os serviços que este cliente adicionou  
+                }                
 
             # Atualizar o agendamento para Ocupado
             dados_para_atualizar = {
@@ -194,38 +205,145 @@ def salvar_ou_atualizar_agendamento(data, horario, nome, telefone, servicos_novo
         return None, None
     
 # Função para cancelar agendamento no Firestore
-def cancelar_agendamento(data, horario, telefone, barbeiro):
+# Substitua a função cancelar_agendamento inteira por esta:
+
+def cancelar_agendamento(data, horario, telefone_para_cancelar, barbeiro):
+    """
+    Cancela um agendamento. Se for um horário compartilhado (Pezim + outro),
+    remove apenas o serviço do cliente correspondente.
+    Retorna os dados do agendamento/serviço que foi efetivamente cancelado.
+    """
     chave_agendamento = f"{data}_{horario}_{barbeiro}"
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+
     try:
         doc = agendamento_ref.get()
-        if doc.exists and doc.to_dict()['telefone'] == telefone:
-            agendamento_data = doc.to_dict()
-            # Verificar se a data é um objeto datetime antes de formatar
-            if isinstance(agendamento_data['data'], datetime):
-                agendamento_data['data'] = agendamento_data['data'].date().strftime('%d/%m/%Y')
-            elif isinstance(agendamento_data['data'], str):
-                # Se for string, tentamos converter para datetime
-                try:
-                    # Tentar converter de diferentes formatos comuns
-                    try:
-                        agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%Y-%m-%d').date().strftime('%d/%m/%Y')
-                    except ValueError:
-                        agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%d/%m/%Y').date().strftime('%d/%m/%Y')
 
-                except ValueError:
-                    st.error("Formato de data inválido no Firestore")
-                    return None
+        if not doc.exists:
+            st.error("Agendamento não encontrado para esta data, horário e barbeiro.")
+            return None # Documento não existe
+
+        agendamento_data = doc.to_dict()
+        telefone_cliente1 = agendamento_data.get('telefone')
+        telefone_cliente2 = agendamento_data.get('telefone_cliente2') # Pega o telefone do cliente 2, se existir
+
+        # Verifica se o telefone fornecido corresponde a algum dos clientes
+        cliente_que_cancela = None
+        dados_cliente_cancelado = {}
+
+        if telefone_cliente1 == telefone_para_cancelar:
+            cliente_que_cancela = 1
+            dados_cliente_cancelado = {
+                'nome': agendamento_data.get('nome'),
+                'telefone': telefone_cliente1,
+                # Determina os serviços do cliente 1 (Pezim ou todos se não houver cliente 2)
+                'servicos': [PEZIM] if telefone_cliente2 else agendamento_data.get('servicos', []),
+                'data': agendamento_data.get('data'), # Manter o formato original por enquanto
+                'horario': agendamento_data.get('horario'),
+                'barbeiro': agendamento_data.get('barbeiro'),
+            }
+        elif telefone_cliente2 and telefone_cliente2 == telefone_para_cancelar:
+            cliente_que_cancela = 2
+            dados_cliente_cancelado = {
+                'nome': agendamento_data.get('nome_cliente2'),
+                'telefone': telefone_cliente2,
+                'servicos': agendamento_data.get('servicos_cliente2', []),
+                'data': agendamento_data.get('data'), # Manter o formato original
+                'horario': agendamento_data.get('horario'),
+                'barbeiro': agendamento_data.get('barbeiro'),
+            }
+
+        if cliente_que_cancela is None:
+            st.error("Telefone não corresponde a nenhum cliente neste agendamento.")
+            return None # Telefone não encontrado no agendamento
+
+        # --- Lógica de Atualização ou Deleção ---
+        transaction = db.transaction()
+
+        @firestore.transactional
+        def processar_cancelamento(transaction):
+            # Ler o documento novamente DENTRO da transação para garantir dados atuais
+            doc_snapshot_trans = agendamento_ref.get(transaction=transaction)
+            if not doc_snapshot_trans.exists:
+                 raise ValueError("Agendamento foi removido por outra operação.") # Segurança
+
+            dados_atuais_trans = doc_snapshot_trans.to_dict()
+            tel_cliente1_trans = dados_atuais_trans.get('telefone')
+            tel_cliente2_trans = dados_atuais_trans.get('telefone_cliente2')
+
+            # Se só havia um cliente (ou o segundo já tinha sido removido)
+            if not tel_cliente2_trans or (cliente_que_cancela == 1 and not tel_cliente2_trans) or (cliente_que_cancela == 2 and not tel_cliente1_trans):
+                 # Simplesmente deleta o documento
+                 transaction.delete(agendamento_ref)
+                 print(f"Documento {chave_agendamento} deletado (último cliente).")
+
+            # Se havia dois clientes
             else:
-                st.error("Formato de data inválida no Firestore")
-                return None
+                servicos_atuais = dados_atuais_trans.get('servicos', [])
+                if cliente_que_cancela == 1: # Cliente 1 (Pezim) cancelando
+                    # Remove Pezim da lista principal
+                    servicos_restantes = [s for s in servicos_atuais if s != PEZIM]
+                    # Prepara atualização: promove cliente 2 para principal
+                    dados_para_atualizar = {
+                        'nome': dados_atuais_trans.get('nome_cliente2'),
+                        'telefone': tel_cliente2_trans,
+                        'servicos': servicos_restantes, # Lista sem o Pezim
+                        'status_horario': ESTADO_OCUPADO, # Continua ocupado com o serviço restante
+                        'nome_cliente2': None, # Limpa dados do cliente 2
+                        'telefone_cliente2': None,
+                        'servicos_cliente2': []
+                    }
+                    transaction.update(agendamento_ref, dados_para_atualizar)
+                    print(f"Documento {chave_agendamento} atualizado (Cliente 1 cancelou Pezim).")
 
-            agendamento_ref.delete()
-            return agendamento_data
-        else:
-            return None
+                elif cliente_que_cancela == 2: # Cliente 2 cancelando
+                    # Remove os serviços do cliente 2 da lista principal
+                    servicos_cliente2_cancelados = dados_atuais_trans.get('servicos_cliente2', [])
+                    servicos_restantes = [s for s in servicos_atuais if s not in servicos_cliente2_cancelados]
+                    # Prepara atualização: mantém cliente 1, limpa cliente 2, status volta para Pezim
+                    dados_para_atualizar = {
+                        'servicos': servicos_restantes, # Deve conter apenas Pezim agora
+                        'status_horario': ESTADO_PEZIM_AGENDADO, # Volta a ser apenas Pezim
+                        'nome_cliente2': None, # Limpa dados do cliente 2
+                        'telefone_cliente2': None,
+                        'servicos_cliente2': []
+                    }
+                    transaction.update(agendamento_ref, dados_para_atualizar)
+                    print(f"Documento {chave_agendamento} atualizado (Cliente 2 cancelou).")
+
+        # Executa a transação
+        processar_cancelamento(transaction)
+
+        # Formata a data nos dados retornados para exibição (fora da transação)
+        if isinstance(dados_cliente_cancelado['data'], datetime):
+            dados_cliente_cancelado['data'] = dados_cliente_cancelado['data'].date().strftime('%d/%m/%Y')
+        elif isinstance(dados_cliente_cancelado['data'], str):
+             # Tenta converter se for string (pode já estar no formato certo)
+             try:
+                data_dt = datetime.strptime(dados_cliente_cancelado['data'], '%Y-%m-%d %H:%M:%S.%f')
+             except ValueError:
+                try:
+                     data_dt = datetime.strptime(dados_cliente_cancelado['data'], '%Y-%m-%d')
+                except ValueError:
+                    try:
+                        data_dt = datetime.strptime(dados_cliente_cancelado['data'], '%d/%m/%Y')
+                    except ValueError:
+                        # Se já está no formato desejado ou outro, mantém como está
+                        pass
+                    else:
+                         dados_cliente_cancelado['data'] = data_dt.strftime('%d/%m/%Y')
+                else:
+                    dados_cliente_cancelado['data'] = data_dt.strftime('%d/%m/%Y')
+             else:
+                dados_cliente_cancelado['data'] = data_dt.strftime('%d/%m/%Y')
+
+        return dados_cliente_cancelado # Retorna os dados do serviço/cliente que cancelou
+
+    except ValueError as e: # Captura erro da transação
+        st.error(f"Erro durante o cancelamento: {e}")
+        return None
     except Exception as e:
-        st.error(f"Erro ao acessar o Firestore: {e}")
+        st.error(f"Erro inesperado ao cancelar agendamento: {e}")
         return None
 
 # Nova função para desbloquear o horário seguinte
@@ -736,17 +854,19 @@ with st.form("cancelar_form"):
                 st.success("Agendamento cancelado com sucesso!")
                 # Usar markdown para melhor formatação do resumo
                 st.markdown("```\n" + resumo_cancelamento + "\n```")
+                
+                # Verifica se os SERVIÇOS QUE FORAM CANCELADOS continham um combo
+                servicos_efetivamente_cancelados = agendamento_cancelado_dados.get('servicos', [])
+                era_combo = "Barba" in servicos_efetivamente_cancelados and any(corte in servicos_efetivamente_cancelados for corte in SERVICOS_QUE_BLOQUEIAM_HORARIO_SEGUINTE)
 
-                # Lógica para desbloquear horário seguinte (com try-except)
-                servicos_cancelados = agendamento_cancelado_dados.get('servicos', [])
-                # Usa a mesma constante do bloco de agendamento
-                if "Barba" in servicos_cancelados and any(corte in servicos_cancelados for corte in SERVICOS_QUE_BLOQUEIAM_HORARIO_SEGUINTE):
+                if era_combo:
                     try:
-                        # Usa os dados retornados pela função de cancelamento
+                        # Usa os dados retornados (que são do serviço cancelado)
                         horario_original_str = agendamento_cancelado_dados['horario']
-                        data_original_str = agendamento_cancelado_dados['data']
+                        data_original_str = agendamento_cancelado_dados['data'] # Pega a data já formatada
                         barbeiro_original = agendamento_cancelado_dados['barbeiro']
 
+                        # Calcula o horário seguinte
                         horario_original_dt = datetime.strptime(horario_original_str, '%H:%M')
                         horario_seguinte_dt = horario_original_dt + timedelta(minutes=30)
                         horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
@@ -756,11 +876,12 @@ with st.form("cancelar_form"):
                         st.info(f"O horário seguinte ({horario_seguinte_str}) foi desbloqueado, pois o serviço cancelado era um combo.")
 
                     except KeyError as e:
-                         st.warning(f"Não foi possível determinar os dados para desbloquear o horário seguinte (campo faltando: {e}).")
+                        st.warning(f"Não foi possível determinar os dados para desbloquear o horário seguinte (campo faltando: {e}).")
                     except ValueError as e:
-                         st.warning(f"Erro ao calcular horário seguinte para desbloqueio: {e}")
+                        st.warning(f"Erro ao calcular horário seguinte para desbloqueio: {e}")
                     except Exception as e:
-                         st.warning(f"Erro inesperado ao tentar desbloquear horário seguinte: {e}")
+                        st.warning(f"Erro inesperado ao tentar desbloquear horário seguinte: {e}")
+                # --- FIM DA MODIFICAÇÃO ---
 
                 # Pausa e recarrega a página
                 time.sleep(6) # Um segundo a mais para garantir a leitura
