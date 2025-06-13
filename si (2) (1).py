@@ -371,33 +371,23 @@ for horario in horarios_tabela:
         if dia_da_semana_tabela < 5:
             dia = data_obj_tabela.day
             mes = data_obj_tabela.month
+            intervalo_especial = mes == 7 and 11 <= dia <= 19
 
-            if mes == 7 and 11 <= dia <= 19:
+            almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
+            almoco_aluizio = not intervalo_especial and (hora_int == 11 or hora_int == 12)
+            if barbeiro == "Lucas Borges" and almoco_lucas:
+                status = "Almoço"
+                bg_color = "orange"
+                color_text = "black
+            elif barbeiro == "Aluizio" and almoco_aluizio:
+                status = "Almoço"
+                bg_color = "orange"
+                color_text = "black"
+            else:
                 disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
                 status = "Disponível" if disponivel else "Ocupado"
                 bg_color = "forestgreen" if disponivel else "firebrick"
-                color_text = "white"
-            else:
-                almoco_lucas = (hora_int == 12 or hora_int ==13) # 12:00 e 12:30
-                almoco_aluizio = (hora_int == 11 or hora_int == 12) # 11:00 e 11:30
-                horario_em_almoco = False
-                
-                if barbeiro == "Lucas Borges" and almoco_lucas:
-                   horario_em_almoco = True
-                elif barbeiro == "Aluizio" and almoco_aluizio:
-                   horario_em_almoco = True
-            # Adicione aqui outros horários de almoço se necessário
-
-                if horario_em_almoco:
-                   status = "Almoço"
-                   bg_color = "orange"
-                   color_text = "black"
-                else:
-                # Se não for almoço, verifica disponibilidade no DB
-                   disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
-                   status = "Disponível" if disponivel else "Ocupado"
-                   bg_color = "forestgreen" if disponivel else "firebrick"
-                   color_text = "white"
+                color_text = "white"    
 
         elif dia_da_semana_tabela == 5: # Sábado - Sem almoço, verifica direto
             disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
