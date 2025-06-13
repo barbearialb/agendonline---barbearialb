@@ -471,8 +471,12 @@ if submitted:
 
         # Verifica almoço apenas se for dia de semana (0 a 4)
         if dia_da_semana_agendamento < 5:
-            almoco_lucas = (hora_agendamento_int == 12 or hora_agendamento_int == 13) # 12:00 e 12:30
-            almoco_aluizio = (hora_agendamento_int == 11 or hora_agendamento_int == 12) # 11:00 e 11:30
+            dia = data_obj_agendamento_form.day
+            mes = data_obj_agendamento_form.month
+            
+            intervalo_especial = mes == 7 and 11 <= dia <= 19
+            almoco_lucas = not intervalo_especial and (hora_agendamento_int == 12 or hora_agendamento_int == 13)
+            almoco_aluizio = not intervalo_especial and (hora_agendamento_int == 11 or hora_agendamento_int == 12)
 
             # Se selecionou barbeiro específico
             if barbeiro_selecionado == "Lucas Borges" and almoco_lucas:
