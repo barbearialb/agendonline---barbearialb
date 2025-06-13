@@ -351,7 +351,7 @@ for horario in horarios_tabela:
         if horario in ["07:00", "07:30"]:
             dia_do_mes = data_obj_tabela.day
             mes_do_ano = data_obj_tabela.month
-            if not (mes_do_ano == 7 and 11 <= dia_do_mes <= 20):
+            if not (mes_do_ano == 7 and 11 <= dia_do_mes < 20):
                 status = "SDJ"
                 bg_color = "#696969"
                 color_text = "white"
@@ -464,7 +464,7 @@ if submitted:
            dia = data_obj_agendamento_form.day
            mes = data_obj_agendamento_form.month
         if not (mes == 7 and 11 <= dia <= 20):
-           st.error("Os horários de 07:00 e 07:30 só estão disponíveis entre os dias 11 e 20 de julho.")
+           st.error("Os horários de 07:00 e 07:30 só estão disponíveis entre os dias 11 e 19 de julho.")
            st.stop()
 
         # --- Validações de Horário de Almoço ---
