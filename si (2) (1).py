@@ -378,7 +378,7 @@ for horario in horarios_tabela:
             if barbeiro == "Lucas Borges" and almoco_lucas:
                 status = "Almoço"
                 bg_color = "orange"
-                color_text = "black
+                color_text = "black"
             elif barbeiro == "Aluizio" and almoco_aluizio:
                 status = "Almoço"
                 bg_color = "orange"
