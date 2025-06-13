@@ -396,11 +396,17 @@ for horario in horarios_tabela:
             color_text = "white"
 
         elif dia_da_semana_tabela == 6:
-            disponivel = verificar_disponibilidade (data_para_tabela, horario, barbeiro) 
-            status = "Disponivel" if disponivel else "Ocupado"
-            bg_color = "foresgreen" if disponivel else "firebrick"
-            color_text = "white"
-
+            dia = data_obj_tabela.day
+            mes = data_obj_tabela.month
+            if mes == 7 and 11 <= dia <= 19:
+                disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+                status = "Disponível" if disponivel else "Ocupado"
+                bg_color = "forestgreen" if disponivel else "firebrick"
+                olor_text = "white"
+            else:
+                status = "Descanso"
+                bg_color = "#A9A9A9"
+                color_text = "black"
         # Adicionando a célula formatada
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
 
@@ -447,6 +453,12 @@ if submitted:
     with st.spinner("Processando agendamento..."):
         # Usar o objeto date diretamente do session state para obter o dia da semana
         dia_da_semana_agendamento = data_obj_agendamento_form.weekday() # 0=Segunda, 6=Domingo
+        dia = data_obj_agendamento_form.day
+        mes = data_obj_agendamento_form.month
+        if dia_da_semana_agendamento == 6:
+            if not (mes == 7 and 11 <= dia <= 19):
+                st.error("Desculpe, agendamentos aos domingos só são permitidos entre 11 e 19 de julho.")
+                st.stop()
 
         # <<< MODIFICAÇÃO 2: Verificar se é Domingo ANTES de tudo >>>
         #if dia_da_semana_agendamento == 6:
