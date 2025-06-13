@@ -64,18 +64,18 @@ db = firestore.client() if firebase_admin._apps else None
 # A lista de horários base será gerada dinamicamente na tabela
 
 servicos = {
-    "Tradicional": 15,
-    "Social": 18,
-    "Degradê": 23,
-    "Pezim": 7,
-    "Navalhado": 25,
-    "Barba": 15,
-    "Abordagem de visagismo": 45,
-    "Consultoria de visagismo": 65,
+    "Tradicional",
+    "Social",
+    "Degradê",
+    "Pezim",
+    "Navalhado",
+    "Barba",
+    "Abordagem de visagismo",
+    "Consultoria de visagismo",
 }
 
 # Lista de serviços para exibição
-lista_servicos = list(servicos.keys())
+lista_servicos = servicos
 
 barbeiros = ["Lucas Borges", "Aluizio"]
 
@@ -439,10 +439,9 @@ with st.form("agendar_form"):
     servicos_selecionados = st.multiselect("Serviços", lista_servicos)
 
     # Exibir os preços com o símbolo R$
-    servicos_com_preco = {servico: f"R$ {preco}" for servico, preco in servicos.items()}
-    st.write("Preços dos serviços:")
-    for servico, preco in servicos_com_preco.items():
-        st.write(f"{servico}: {preco}")
+    st.write("Serviços disponíveis:")
+    for servico in servicos:
+        st.write(f"- {servico}")
 
     submitted = st.form_submit_button("Confirmar Agendamento")
 
