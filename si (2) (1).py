@@ -348,15 +348,15 @@ for horario in horarios_tabela:
         minuto_int = int(horario.split(':')[1])
 
     # >>> REGRA ESPECIAL: Horários 07:00 e 07:30 recebem status "SDJ", exceto de 11 a 20 de julho <<<
-    if horario in ["07:00", "07:30"]:
-        dia_do_mes = data_obj_tabela.day
-        mes_do_ano = data_obj_tabela.month
-        if not (mes_do_ano == 7 and 11 <= dia_do_mes <= 20):
-            status = "SDJ"
-            bg_color = "#696969"  # Cinza escuro
-            color_text = "white"
-            html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
-            continue
+       if horario in ["07:00", "07:30"]:
+          dia_do_mes = data_obj_tabela.day
+          mes_do_ano = data_obj_tabela.month
+          if not (mes_do_ano == 7 and 11 <= dia_do_mes <= 20):
+              status = "SDJ"
+              bg_color = "#696969"  # Cinza escuro
+              color_text = "white"
+              html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
+              continue
 
     # >>> REGRA ESPECIAL: Horários 07:00 e 07:30 recebem status "SDJ", exceto de 11 a 20 de julho <<<
      # Pula o restante da lógica para este horário/barbeiro
