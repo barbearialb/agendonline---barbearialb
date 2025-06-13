@@ -344,8 +344,8 @@ for horario in horarios_tabela:
         bg_color = "grey"     # Default
         color_text = "white"   # Default
 
-    hora_int = int(horario.split(':')[0])
-    minuto_int = int(horario.split(':')[1])
+        hora_int = int(horario.split(':')[0])
+        minuto_int = int(horario.split(':')[1])
 
     # >>> REGRA ESPECIAL: Horários 07:00 e 07:30 recebem status "SDJ", exceto de 11 a 20 de julho <<<
     if horario in ["07:00", "07:30"]:
