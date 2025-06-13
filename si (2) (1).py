@@ -473,9 +473,10 @@ if submitted:
         if horario_agendamento in ["07:00", "07:30"]:
            dia = data_obj_agendamento_form.day
            mes = data_obj_agendamento_form.month
-        if not (mes == 7 and 11 <= dia <= 20):
-           st.error("Os horários de 07:00 e 07:30 só estão disponíveis entre os dias 11 e 19 de julho.")
-           st.stop()
+           
+           if not (mes == 7 and 11 <= dia <= 20):
+            st.error("Os horários de 07:00 e 07:30 só estão disponíveis entre os dias 11 e 19 de julho.")
+            st.stop()
 
         # --- Validações de Horário de Almoço ---
         hora_agendamento_int = int(horario_agendamento.split(':')[0])
@@ -488,7 +489,7 @@ if submitted:
             
             intervalo_especial = mes == 7 and 11 <= dia <= 19
             almoco_lucas = not intervalo_especial and (hora_agendamento_int == 12 or hora_agendamento_int == 13)
-            almoco_aluizio = not intervalo_especial and (hora_agendamento_int == 11 or hora_agendamento_int == 12)
+            almoco_aluizio = not intervalo_especial and (hora_agendamento_int == 12 or hora_agendamento_int == 13)
 
             # Se selecionou barbeiro específico
             if barbeiro_selecionado == "Lucas Borges" and almoco_lucas:
