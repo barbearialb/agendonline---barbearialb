@@ -374,7 +374,7 @@ for horario in horarios_tabela:
             intervalo_especial = mes == 7 and 11 <= dia <= 19
 
             almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
-            almoco_aluizio = not intervalo_especial and (hora_int == 11 or hora_int == 12)
+            almoco_aluizio = not intervalo_especial and (hora_int == 12 or hora_int == 13)
             if barbeiro == "Lucas Borges" and almoco_lucas:
                 status = "Almoço"
                 bg_color = "orange"
