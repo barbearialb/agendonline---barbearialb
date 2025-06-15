@@ -324,19 +324,7 @@ data_obj_tabela = st.session_state.data_agendamento # Mantém como objeto date p
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
 
-html_table = '''
-<table style="font-size: 14px; border-collapse: collapse; width: 100%; table-layout: fixed; border: 1px solid #ddd;">
-<colgroup>
-    <col style="width: 20%;">
-    <col style="width: 40%;">
-    <col style="width: 40%;">
-</colgroup>
-<tr>
-    <th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>
-    <th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Lucas Borges</th>
-    <th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Aluizio</th>
-</tr>
-'''
+html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
 for barbeiro in barbeiros:
     html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">{barbeiro}</th>'
 html_table += '</tr>'
@@ -386,7 +374,7 @@ for horario in horarios_tabela:
             intervalo_especial = mes == 7 and 11 <= dia <= 19
 
             almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
-            almoco_aluizio = not intervalo_especial and (hora_int == 12 or hora_int == 13)
+            almoco_aluizio = not intervalo_especial and (hora_int == 11 or hora_int == 12)
             if barbeiro == "Lucas Borges" and almoco_lucas:
                 status = "Almoço"
                 bg_color = "orange"
