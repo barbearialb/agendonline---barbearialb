@@ -338,7 +338,7 @@ for h in range(7, 20):
         horarios_tabela.append(horario_str)
 
 for horario in horarios_tabela:
-    html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd;">{horario}</td>'
+    html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
     for barbeiro in barbeiros:
         status = "Indisponível"  # Default
         bg_color = "grey"        # Default
