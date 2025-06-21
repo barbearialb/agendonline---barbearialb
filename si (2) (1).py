@@ -77,7 +77,7 @@ servicos = {
 # Lista de serviços para exibição
 lista_servicos = servicos
 
-barbeiros = ["Lucas Borges", "Aluizio"]
+barbeiros = ["Aluízio", "Lucas Borges"]
 
 # Função para enviar e-mail
 def enviar_email(assunto, mensagem):
