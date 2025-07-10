@@ -534,9 +534,11 @@ if submitted:
         for b in barbeiros_a_verificar:
             # Re-verifica almoço para o caso "Sem preferência"
             if dia_da_semana_agendamento < 5:
-                if not intervalo_especial = mes == 7 and 10 <= dia <= 19
-                    if b == "Lucas Borges" and (hora_agendamento_int == 12): continue # Pula se Lucas está almoçando
-                    if b == "Aluizio" and (hora_agendamento_int == 11): continue # Pula se Aluizio está almoçando
+                intervalo_especial = mes == 7 and 10 <= dia <= 19
+                if not intervalo_especial:
+                    if b == "Lucas Borges" and (hora_agendamento_int == 12): continue
+                    if b == "Aluizio" and (hora_agendamento_int == 11): continue
+ # Pula se Aluizio está almoçando
 
             # Verifica disponibilidade real no DB
             if verificar_disponibilidade(data_agendamento_str_form, horario_agendamento, b):
