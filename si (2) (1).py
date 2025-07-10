@@ -351,7 +351,7 @@ for horario in horarios_tabela:
         if horario in ["07:00", "07:30"]:
             dia_do_mes = data_obj_tabela.day
             mes_do_ano = data_obj_tabela.month
-            if not (mes_do_ano == 7 and 10 <= dia_do_mes <= 19):
+            if not (mes_do_ano == 7 and 11 <= dia_do_mes < 20):
                 status = "SDJ"
                 bg_color = "#696969"
                 color_text = "white"
@@ -371,7 +371,7 @@ for horario in horarios_tabela:
         if dia_da_semana_tabela < 5:
             dia = data_obj_tabela.day
             mes = data_obj_tabela.month
-            intervalo_especial = mes == 7 and 10 <= dia <= 19
+            intervalo_especial = mes == 7 and 11 <= dia <= 19
 
             almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
             almoco_aluizio = not intervalo_especial and (hora_int == 12 or hora_int == 13)
@@ -398,7 +398,7 @@ for horario in horarios_tabela:
         elif dia_da_semana_tabela == 6:
             dia = data_obj_tabela.day
             mes = data_obj_tabela.month
-            if mes == 7 and 10 <= dia <= 19:
+            if mes == 7 and 11 <= dia <= 19:
                 disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
                 status = "Disponível" if disponivel else "Ocupado"
                 bg_color = "forestgreen" if disponivel else "firebrick"
@@ -456,7 +456,7 @@ if submitted:
         dia = data_obj_agendamento_form.day
         mes = data_obj_agendamento_form.month
         if dia_da_semana_agendamento == 6:
-            if not (mes == 7 and 10 <= dia <= 19):
+            if not (mes == 7 and 11 <= dia <= 19):
                 st.error("Desculpe, agendamentos aos domingos só são permitidos entre 11 e 19 de julho.")
                 st.stop()
 
@@ -474,7 +474,7 @@ if submitted:
            dia = data_obj_agendamento_form.day
            mes = data_obj_agendamento_form.month
            
-           if not (mes == 7 and 10 <= dia <= 19):
+           if not (mes == 7 and 11 <= dia <= 20):
             st.error("Os horários de 07:00 e 07:30 só estão disponíveis entre os dias 11 e 19 de julho.")
             st.stop()
 
@@ -487,7 +487,7 @@ if submitted:
             dia = data_obj_agendamento_form.day
             mes = data_obj_agendamento_form.month
             
-            intervalo_especial = mes == 7 and 10 <= dia <= 19
+            intervalo_especial = mes == 7 and 11 <= dia <= 19
             almoco_lucas = not intervalo_especial and (hora_agendamento_int == 12 or hora_agendamento_int == 13)
             almoco_aluizio = not intervalo_especial and (hora_agendamento_int == 12 or hora_agendamento_int == 13)
 
