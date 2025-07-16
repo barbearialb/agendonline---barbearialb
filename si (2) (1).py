@@ -404,7 +404,7 @@ for horario in horarios_tabela:
                 bg_color = "forestgreen" if disponivel else "firebrick"
                 olor_text = "white"
             else:
-                status = "Descanso"
+                status = "Fechado"
                 bg_color = "#A9A9A9"
                 color_text = "black"
         # Adicionando a célula formatada
@@ -457,7 +457,7 @@ if submitted:
         mes = data_obj_agendamento_form.month
         if dia_da_semana_agendamento == 6:
             if not (mes == 7 and 10 <= dia <= 19):
-                st.error("Desculpe, agendamentos aos domingos só são permitidos entre 11 e 19 de julho.")
+                st.error("Desculpe, estamos fechados aos domingos.")
                 st.stop()
 
         # <<< MODIFICAÇÃO 2: Verificar se é Domingo ANTES de tudo >>>
