@@ -332,7 +332,7 @@ html_table += '</tr>'
 # Gerar horários base dinamicamente
 dia_da_semana_tabela = data_obj_tabela.weekday()  # 0 = segunda, 6 = domingo
 horarios_tabela = []
-for h in range(7, 20):
+for h in range(8, 20):
     for m in (0, 30):
         horario_str = f"{h:02d}:{m:02d}"
         horarios_tabela.append(horario_str)
@@ -428,7 +428,7 @@ with st.form("agendar_form"):
     data_obj_agendamento_form = st.session_state.data_agendamento # Objeto date para validações
 
     # Geração da lista de horários completa para agendamento
-    horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(7, 20) for m in (0, 30)]
+    horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
@@ -610,7 +610,7 @@ with st.form("cancelar_form"):
     data_cancelar = st.date_input("Data do Agendamento", min_value=datetime.today().date()) # Usar date()
 
     # Geração da lista de horários completa para cancelamento
-    horarios_base_cancelamento = [f"{h:02d}:{m:02d}" for h in range(7, 20) for m in (0, 30)]
+    horarios_base_cancelamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
     horario_cancelar = st.selectbox("Horário do Agendamento", horarios_base_cancelamento) # Usa a lista completa
 
