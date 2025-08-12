@@ -195,6 +195,37 @@ def desbloquear_horario(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao desbloquear horário: {e}")
 
+# Função para verificar disponibilidade do horário no Firebase
+# @st.cache_data # Cache pode causar problemas se a disponibilidade muda rapidamente. Removido.
+def verificar_disponibilidade(data, horario, barbeiro=None):
+    if not db:
+        st.error("Firestore não inicializado.")
+        return False # Indisponível se DB não funciona
+
+    # Verificar agendamento regular
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"
+    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+
+    # Verificar horário bloqueado
+    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
+    bloqueio_ref = db.collection('agendamentos').document(chave_bloqueio)
+
+    try:
+        # Tenta obter ambos os documentos
+        doc_agendamento = agendamento_ref.get()
+        doc_bloqueio = bloqueio_ref.get()
+        # Retorna True (disponível) apenas se NENHUM dos dois existir
+        return not doc_agendamento.exists and not doc_bloqueio.exists
+    except google.api_core.exceptions.RetryError as e:
+        st.error(f"Erro de conexão com o Firestore ao verificar disponibilidade: {e}")
+        return False # Indisponível em caso de erro de conexão
+    except Exception as e:
+        st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
+        return False # Indisponível em caso de erro inesperado
+
+# Função para verificar disponibilidade do horário e do horário seguinte
+# A política de retry padrão do Firestore client geralmente é suficiente.
+# @retry.Retry() # Remover se a retry padrão for suficiente
 def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     if not db:
         st.error("Firestore não inicializado.")
@@ -254,38 +285,6 @@ def bloquear_horario(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao bloquear horário: {e}")
         return False # Indicar falha
-    # Coloque esta função no início do seu arquivo, junto com as outras funções de backend.
-
-@st.cache_data(ttl=60)
-def buscar_agendamentos_do_dia(data_str):
-    """
-    Busca todos os documentos de agendamento para uma data específica
-    e retorna um set de chaves para verificação rápida.
-    """
-    if not db:
-        return set() # Retorna um conjunto vazio se o DB não estiver disponível
-
-    agendamentos_ocupados = set()
-    try:
-        # Converte a data string para objeto datetime para a consulta no Firestore
-        data_obj = datetime.strptime(data_str, '%d/%m/%Y')
-        
-        # Define o início e o fim do dia para a consulta
-        start_of_day = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0)
-        end_of_day = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59)
-
-        docs = db.collection('agendamentos').where('data', '>=', start_of_day).where('data', '<=', end_of_day).stream()
-
-        for doc in docs:
-            dados = doc.to_dict()
-            # Cria uma "chave" única para cada horário/barbeiro ocupado
-            chave = f"{dados['horario']}_{dados['barbeiro']}"
-            agendamentos_ocupados.add(chave)
-            
-    except Exception as e:
-        st.error(f"Erro ao buscar agendamentos do dia: {e}")
-        
-    return agendamentos_ocupados
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -324,7 +323,6 @@ data_obj_tabela = st.session_state.data_agendamento # Mantém como objeto date p
 
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
-horarios_ocupados_set = buscar_agendamentos_do_dia(data_para_tabela)
 
 html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
 for barbeiro in barbeiros:
@@ -672,4 +670,3 @@ with st.form("cancelar_form"):
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
-
