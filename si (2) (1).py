@@ -409,7 +409,7 @@ for horario in horarios_tabela:
                 disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
                 status = "Disponível" if disponivel else "Ocupado"
                 bg_color = "forestgreen" if disponivel else "firebrick"
-                olor_text = "white"
+                color_text = "white"
             else:
                 status = "Fechado"
                 bg_color = "#A9A9A9"
@@ -677,6 +677,7 @@ with st.form("cancelar_form"):
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
 
 
