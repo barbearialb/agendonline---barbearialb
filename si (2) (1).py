@@ -599,10 +599,9 @@ if submitted:
                 st.info(f"O horário das {horario_seguinte_str} com {barbeiro_agendado} foi bloqueado para acomodar todos os serviços.")
 
             # Limpar cache (se estivesse usando) e atualizar a página
-            # verificar_disponibilidade.clear()
+            carregar_agendamentos_por_data.clear()
             time.sleep(5) # Pausa para o usuário ler as mensagens
             st.rerun()
-
         else:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
             st.error("Não foi possível completar o agendamento. Verifique as mensagens de erro acima ou tente novamente.")
@@ -670,9 +669,11 @@ with st.form("cancelar_form"):
                 # st.info("Resumo do cancelamento:\n" + resumo_cancelamento) # Opcional exibir o resumo
                 if horario_seguinte_desbloqueado:
                     st.info("O horário seguinte, que estava bloqueado, foi liberado.")
+                carregar_agendamentos_por_data.clear()
                 time.sleep(5)
                 st.rerun()
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
