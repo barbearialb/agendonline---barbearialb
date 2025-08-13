@@ -328,10 +328,6 @@ if data_agendamento_obj != st.session_state.data_agendamento:
 data_para_tabela = st.session_state.data_agendamento.strftime('%d/%m/%Y')  # Formatar o objeto date para string DD/MM/YYYY
 data_obj_tabela = st.session_state.data_agendamento # Mantém como objeto date para pegar weekday
 
-if 'dados_atualizados' in st.session_state and st.session_state.dados_atualizados:
-    carregar_disponibilidade_dia.cache_clear()
-    st.session_state.dados_atualizados = False
-
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
 
@@ -681,6 +677,7 @@ with st.form("cancelar_form"):
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
 
 
