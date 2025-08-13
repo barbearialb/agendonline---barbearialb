@@ -103,7 +103,7 @@ def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
         st.error("Firestore não inicializado. Não é possível salvar.")
         return False # Indicar falha
 
-    chave_agendamento = f"{data}_{horario}_{barbeiro}"
+    chave_agendamento = criar_chave_segura(data_obj_form, horario, barbeiro)
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
 
     # Converter a string de data para um objeto datetime.datetime
@@ -141,7 +141,7 @@ def cancelar_agendamento(data, horario, telefone, barbeiro):
         st.error("Firestore não inicializado. Não é possível cancelar.")
         return None
 
-    chave_agendamento = f"{data}_{horario}_{barbeiro}"
+    chave_agendamento = criar_chave_segura(data_obj_form, horario, barbeiro)
     agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
     try:
         doc = agendamento_ref.get()
@@ -235,7 +235,7 @@ def bloquear_horario(data, horario, barbeiro):
         st.error(f"Erro ao bloquear horário: {e}")
         return False # Indicar falha
         
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def carregar_agendamentos_por_data(data_selecionada):
     """
     Busca todos os agendamentos de uma data específica de uma só vez.
@@ -646,6 +646,7 @@ with st.form("cancelar_form"):
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
 
 
