@@ -285,17 +285,6 @@ def bloquear_horario(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao bloquear horário: {e}")
         return False # Indicar falha
-@st.cache_data(ttl=10)
-def carregar_agendamentos_por_data(data_obj):
-    """Busca todos os agendamentos de uma data de uma vez só no Firestore"""
-    if not db:
-        return {}
-    try:
-        docs = db.collection('agendamentos').where('data', '==', data_obj).stream()
-        return {doc.id: doc.to_dict() for doc in docs}
-    except Exception as e:
-        st.error(f"Erro ao carregar agendamentos: {e}")
-        return {}
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -335,12 +324,6 @@ data_obj_tabela = st.session_state.data_agendamento # Mantém como objeto date p
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
 
-
-data_obj_tabela_datetime = datetime.combine(data_obj_tabela, datetime.min.time())
-
-# Carrega todos os agendamentos de uma vez (1 consulta apenas)
-agendamentos_do_dia = carregar_agendamentos_por_data(data_obj_tabela_datetime)
-
 html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
 for barbeiro in barbeiros:
     html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white; min-width: 120px; text-align: center;">{barbeiro}</th>'
@@ -348,74 +331,86 @@ html_table += '</tr>'
 
 # Gerar horários base dinamicamente
 dia_da_semana_tabela = data_obj_tabela.weekday()  # 0 = segunda, 6 = domingo
-horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+horarios_tabela = []
+for h in range(8, 20):
+    for m in (0, 30):
+        horario_str = f"{h:02d}:{m:02d}"
+        horarios_tabela.append(horario_str)
 
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
     for barbeiro in barbeiros:
-        status = "Indisponível"
-        bg_color = "grey"
-        color_text = "white"
+        status = "Indisponível"  # Default
+        bg_color = "grey"        # Default
+        color_text = "white"     # Default
 
         hora_int = int(horario.split(':')[0])
-        dia_do_mes = data_obj_tabela.day
-        mes_do_ano = data_obj_tabela.month
-        intervalo_especial = (mes_do_ano == 7 and 10 <= dia_do_mes <= 19)
+        minuto_int = int(horario.split(':')[1])
 
-        # 07:00 e 07:30 -> SDJ
-        if horario in ["07:00", "07:30"] and not intervalo_especial:
-            status = "SDJ"
-            bg_color = "#696969"
-            color_text = "white"
-        # Dias de semana -> verificar almoço ou disponibilidade
-        elif dia_da_semana_tabela < 5:
-            almoco = not intervalo_especial and (hora_int in [12, 13])
-            if almoco:
+        # ✅ Esta verificação agora está DENTRO do loop do barbeiro
+        if horario in ["07:00", "07:30"]:
+            dia_do_mes = data_obj_tabela.day
+            mes_do_ano = data_obj_tabela.month
+            if not (mes_do_ano == 7 and 10 <= dia_do_mes <= 19):
+                status = "SDJ"
+                bg_color = "#696969"
+                color_text = "white"
+                html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
+                continue
+
+    # >>> REGRA ESPECIAL: Horários 07:00 e 07:30 recebem status "SDJ", exceto de 11 a 20 de julho <<<
+     # Pula o restante da lógica para este horário/barbeiro
+
+        # <<< MODIFICAÇÃO 1: Tratamento para Domingo >>>
+        #if dia_da_semana_tabela == 6: # Se for Domingo
+            #status = "Descanso"
+            #bg_color = "#A9A9A9" # Cinza escuro (DarkGray)
+            #color_text = "black"
+        # <<< FIM MODIFICAÇÃO 1 >>>
+
+        if dia_da_semana_tabela < 5:
+            dia = data_obj_tabela.day
+            mes = data_obj_tabela.month
+            intervalo_especial = mes == 7 and 10 <= dia <= 19
+
+            almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
+            almoco_aluizio = not intervalo_especial and (hora_int == 12 or hora_int == 13)
+            if barbeiro == "Lucas Borges" and almoco_lucas:
+                status = "Almoço"
+                bg_color = "orange"
+                color_text = "black"
+            elif barbeiro == "Aluizio" and almoco_aluizio:
                 status = "Almoço"
                 bg_color = "orange"
                 color_text = "black"
             else:
-                chave_agendamento = f"{data_para_tabela}_{horario}_{barbeiro}"
-                chave_bloqueio = f"{data_para_tabela}_{horario}_{barbeiro}_BLOQUEADO"
-                if chave_agendamento in agendamentos_do_dia or chave_bloqueio in agendamentos_do_dia:
-                    status = "Ocupado"
-                    bg_color = "firebrick"
-                else:
-                    status = "Disponível"
-                    bg_color = "forestgreen"
-                color_text = "white"
-        # Sábado
-        elif dia_da_semana_tabela == 5:
-            chave_agendamento = f"{data_para_tabela}_{horario}_{barbeiro}"
-            chave_bloqueio = f"{data_para_tabela}_{horario}_{barbeiro}_BLOQUEADO"
-            if chave_agendamento in agendamentos_do_dia or chave_bloqueio in agendamentos_do_dia:
-                status = "Ocupado"
-                bg_color = "firebrick"
-            else:
-                status = "Disponível"
-                bg_color = "forestgreen"
+                disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+                status = "Disponível" if disponivel else "Ocupado"
+                bg_color = "forestgreen" if disponivel else "firebrick"
+                color_text = "white"    
+
+        elif dia_da_semana_tabela == 5: # Sábado - Sem almoço, verifica direto
+            disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+            status = "Disponível" if disponivel else "Ocupado"
+            bg_color = "forestgreen" if disponivel else "firebrick"
             color_text = "white"
-        # Domingo
+
         elif dia_da_semana_tabela == 6:
-            if intervalo_especial:
-                chave_agendamento = f"{data_para_tabela}_{horario}_{barbeiro}"
-                chave_bloqueio = f"{data_para_tabela}_{horario}_{barbeiro}_BLOQUEADO"
-                if chave_agendamento in agendamentos_do_dia or chave_bloqueio in agendamentos_do_dia:
-                    status = "Ocupado"
-                    bg_color = "firebrick"
-                else:
-                    status = "Disponível"
-                    bg_color = "forestgreen"
-                color_text = "white"
+            dia = data_obj_tabela.day
+            mes = data_obj_tabela.month
+            if mes == 7 and 10 <= dia <= 19:
+                disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+                status = "Disponível" if disponivel else "Ocupado"
+                bg_color = "forestgreen" if disponivel else "firebrick"
+                olor_text = "white"
             else:
                 status = "Fechado"
                 bg_color = "#A9A9A9"
                 color_text = "black"
-
-        # Adiciona a célula
+        # Adicionando a célula formatada
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
 
-    html_table += '</tr>'  # Fecha linha
+    html_table += '</tr>' # Fecha a linha do horário
 
 html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
@@ -599,9 +594,10 @@ if submitted:
                 st.info(f"O horário das {horario_seguinte_str} com {barbeiro_agendado} foi bloqueado para acomodar todos os serviços.")
 
             # Limpar cache (se estivesse usando) e atualizar a página
-            carregar_agendamentos_por_data.clear()
+            # verificar_disponibilidade.clear()
             time.sleep(5) # Pausa para o usuário ler as mensagens
             st.rerun()
+
         else:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
             st.error("Não foi possível completar o agendamento. Verifique as mensagens de erro acima ou tente novamente.")
@@ -669,11 +665,8 @@ with st.form("cancelar_form"):
                 # st.info("Resumo do cancelamento:\n" + resumo_cancelamento) # Opcional exibir o resumo
                 if horario_seguinte_desbloqueado:
                     st.info("O horário seguinte, que estava bloqueado, foi liberado.")
-                carregar_agendamentos_por_data.clear()
                 time.sleep(5)
                 st.rerun()
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
-
-
