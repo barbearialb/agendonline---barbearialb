@@ -510,9 +510,11 @@ if submitted:
                 if not intervalo_especial:
                     if b == "Lucas Borges" and (hora_agendamento_int == 12): continue
                     if b == "Aluizio" and (hora_agendamento_int == 11): continue
- # Pula se Aluizio está almoçando
+            
+            agendamentos_do_dia_form = carregar_agendamentos_por_data(data_obj_agendamento_form)
 
-            # Verifica disponibilidade real no DB
+            barbeiro_agendado = None
+            for b in barbeiros_a_verificar:
             if verificar_disponibilidade(agendamentos_do_dia_form, data_obj_agendamento_form, horario_agendamento, b):
                 barbeiro_agendado = b
                 break # Encontrou um barbeiro disponível
@@ -644,4 +646,5 @@ with st.form("cancelar_form"):
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
