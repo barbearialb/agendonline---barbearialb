@@ -330,6 +330,10 @@ if data_agendamento_obj != st.session_state.data_agendamento:
 data_para_tabela = st.session_state.data_agendamento.strftime('%d/%m/%Y')  # Formatar o objeto date para string DD/MM/YYYY
 data_obj_tabela = st.session_state.data_agendamento # Mantém como objeto date para pegar weekday
 
+if 'dados_atualizados' in st.session_state and st.session_state.dados_atualizados:
+    carregar_disponibilidade_dia.cache_clear()
+    st.session_state.dados_atualizados = False
+
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
 
@@ -602,10 +606,8 @@ if submitted:
             if horario_seguinte_bloqueado:
                 st.info(f"O horário das {horario_seguinte_str} com {barbeiro_agendado} foi bloqueado para acomodar todos os serviços.")
 
-            # Limpar cache (se estivesse usando) e atualizar a página
-            # verificar_disponibilidade.clear()
-            carregar_disponibilidade_dia.cache_clear()
             time.sleep(5) # Pausa para o usuário ler as mensagens
+            st.session_state.dados_atualizados = True
             st.rerun()
         else:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
@@ -675,12 +677,13 @@ with st.form("cancelar_form"):
                 if horario_seguinte_desbloqueado:
                     st.info("O horário seguinte, que estava bloqueado, foi liberado.")
                 
-                carregar_disponibilidade_dia.cache_clear()
                 time.sleep(5)
+                st.session_state.dados_atualizados = True
                 st.rerun()
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
 
 
