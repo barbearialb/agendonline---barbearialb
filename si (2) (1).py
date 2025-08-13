@@ -2,7 +2,6 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from datetime import datetime, timedelta
-from functools import lru_cache
 import smtplib
 from email.mime.text import MIMEText
 import json
@@ -196,43 +195,37 @@ def desbloquear_horario(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao desbloquear horário: {e}")
 
-@lru_cache(maxsize=10)
-def carregar_disponibilidade_dia(data, versao=0):
-    """
-    Carrega todos os horários agendados/bloqueados de todos os barbeiros
-    dessa data de uma vez só para otimizar consultas.
-    """
+# Função para verificar disponibilidade do horário no Firebase
+# @st.cache_data # Cache pode causar problemas se a disponibilidade muda rapidamente. Removido.
+def verificar_disponibilidade(data, horario, barbeiro=None):
     if not db:
         st.error("Firestore não inicializado.")
-        return set()
+        return False # Indisponível se DB não funciona
+
+    # Verificar agendamento regular
+    chave_agendamento = f"{data}_{horario}_{barbeiro}"
+    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+
+    # Verificar horário bloqueado
+    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
+    bloqueio_ref = db.collection('agendamentos').document(chave_bloqueio)
 
     try:
-        data_obj = datetime.strptime(data, '%d/%m/%Y')
-        agendamentos = db.collection('agendamentos') \
-            .where('data', '==', data_obj) \
-            .stream()
-
-        ocupados = set()
-        for doc in agendamentos:
-            dados = doc.to_dict()
-            # Adiciona chave normal
-            ocupados.add(f"{dados['horario']}_{dados['barbeiro']}")
-            # Adiciona chave bloqueio, se for o caso
-            if dados.get('nome') == "BLOQUEADO":
-                ocupados.add(f"{dados['horario']}_{dados['barbeiro']}_BLOQUEADO")
-        return ocupados
-
+        # Tenta obter ambos os documentos
+        doc_agendamento = agendamento_ref.get()
+        doc_bloqueio = bloqueio_ref.get()
+        # Retorna True (disponível) apenas se NENHUM dos dois existir
+        return not doc_agendamento.exists and not doc_bloqueio.exists
+    except google.api_core.exceptions.RetryError as e:
+        st.error(f"Erro de conexão com o Firestore ao verificar disponibilidade: {e}")
+        return False # Indisponível em caso de erro de conexão
     except Exception as e:
-        st.error(f"Erro ao carregar disponibilidade do dia: {e}")
-        return set()
+        st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
+        return False # Indisponível em caso de erro inesperado
 
-def verificar_disponibilidade(data, horario, barbeiro=None):
-    versao = st.session_state.get('versao_disponibilidade', 0)
-    ocupados = carregar_disponibilidade_dia(data, versao)
-    chave_normal = f"{horario}_{barbeiro}"
-    chave_bloqueio = f"{horario}_{barbeiro}_BLOQUEADO"
-    return chave_normal not in ocupados and chave_bloqueio not in ocupados
-    
+# Função para verificar disponibilidade do horário e do horário seguinte
+# A política de retry padrão do Firestore client geralmente é suficiente.
+# @retry.Retry() # Remover se a retry padrão for suficiente
 def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     if not db:
         st.error("Firestore não inicializado.")
@@ -409,7 +402,7 @@ for horario in horarios_tabela:
                 disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
                 status = "Disponível" if disponivel else "Ocupado"
                 bg_color = "forestgreen" if disponivel else "firebrick"
-                color_text = "white"
+                olor_text = "white"
             else:
                 status = "Fechado"
                 bg_color = "#A9A9A9"
@@ -600,9 +593,11 @@ if submitted:
             if horario_seguinte_bloqueado:
                 st.info(f"O horário das {horario_seguinte_str} com {barbeiro_agendado} foi bloqueado para acomodar todos os serviços.")
 
+            # Limpar cache (se estivesse usando) e atualizar a página
+            # verificar_disponibilidade.clear()
             time.sleep(5) # Pausa para o usuário ler as mensagens
-            st.session_state['versao_disponibilidade'] = st.session_state.get('versao_disponibilidade', 0) + 1
             st.rerun()
+
         else:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
             st.error("Não foi possível completar o agendamento. Verifique as mensagens de erro acima ou tente novamente.")
@@ -670,17 +665,8 @@ with st.form("cancelar_form"):
                 # st.info("Resumo do cancelamento:\n" + resumo_cancelamento) # Opcional exibir o resumo
                 if horario_seguinte_desbloqueado:
                     st.info("O horário seguinte, que estava bloqueado, foi liberado.")
-                
                 time.sleep(5)
-                st.session_state['versao_disponibilidade'] = st.session_state.get('versao_disponibilidade', 0) + 1
                 st.rerun()
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
-
-
-
-
-
-
-
