@@ -604,6 +604,7 @@ if submitted:
 
             # Limpar cache (se estivesse usando) e atualizar a página
             # verificar_disponibilidade.clear()
+            carregar_disponibilidade_dia.cache_clear()
             time.sleep(5) # Pausa para o usuário ler as mensagens
             st.rerun()
 
@@ -674,9 +675,12 @@ with st.form("cancelar_form"):
                 # st.info("Resumo do cancelamento:\n" + resumo_cancelamento) # Opcional exibir o resumo
                 if horario_seguinte_desbloqueado:
                     st.info("O horário seguinte, que estava bloqueado, foi liberado.")
+                
+                carregar_disponibilidade_dia.cache_clear()
                 time.sleep(5)
                 st.rerun()
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
