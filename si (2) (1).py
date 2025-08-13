@@ -197,7 +197,7 @@ def desbloquear_horario(data, horario, barbeiro):
         st.error(f"Erro ao desbloquear horário: {e}")
 
 @lru_cache(maxsize=10)
-def carregar_disponibilidade_dia(data):
+def carregar_disponibilidade_dia(data, versao=0):
     """
     Carrega todos os horários agendados/bloqueados de todos os barbeiros
     dessa data de uma vez só para otimizar consultas.
@@ -227,10 +227,8 @@ def carregar_disponibilidade_dia(data):
         return set()
 
 def verificar_disponibilidade(data, horario, barbeiro=None):
-    """
-    Verifica disponibilidade usando os dados carregados em bloco.
-    """
-    ocupados = carregar_disponibilidade_dia(data)
+    versao = st.session_state.get('versao_disponibilidade', 0)
+    ocupados = carregar_disponibilidade_dia(data, versao)
     chave_normal = f"{horario}_{barbeiro}"
     chave_bloqueio = f"{horario}_{barbeiro}_BLOQUEADO"
     return chave_normal not in ocupados and chave_bloqueio not in ocupados
@@ -607,7 +605,7 @@ if submitted:
                 st.info(f"O horário das {horario_seguinte_str} com {barbeiro_agendado} foi bloqueado para acomodar todos os serviços.")
 
             time.sleep(5) # Pausa para o usuário ler as mensagens
-            st.session_state.dados_atualizados = True
+            st.session_state['versao_disponibilidade'] = st.session_state.get('versao_disponibilidade', 0) + 1
             st.rerun()
         else:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
@@ -678,11 +676,12 @@ with st.form("cancelar_form"):
                     st.info("O horário seguinte, que estava bloqueado, foi liberado.")
                 
                 time.sleep(5)
-                st.session_state.dados_atualizados = True
+                st.session_state['versao_disponibilidade'] = st.session_state.get('versao_disponibilidade', 0) + 1
                 st.rerun()
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
 
 
