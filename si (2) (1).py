@@ -261,38 +261,6 @@ def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
         st.error(f"Erro inesperado ao verificar disponibilidade do horário seguinte: {e}")
         return False
 
-def carregar_agendamentos_por_data(data_obj):
-    """
-    Busca todos os agendamentos de um dia no Firestore de uma só vez.
-    data_obj deve ser datetime.date
-    """
-    if not db:
-        st.error("Firestore não inicializado.")
-        return {}
-
-    inicio = datetime.combine(data_obj, datetime.min.time())
-    fim = datetime.combine(data_obj, datetime.max.time())
-
-    try:
-        docs = db.collection("agendamentos").where("data", ">=", inicio).where("data", "<=", fim).stream()
-        agendamentos = {}
-        for doc in docs:
-            dados = doc.to_dict()
-
-            # Garante que a data esteja em string dd/mm/yyyy
-            if isinstance(dados['data'], datetime):
-                data_str = dados['data'].strftime("%d/%m/%Y")
-            elif isinstance(dados['data'], str):
-                data_str = dados['data']
-            else:
-                continue  # ignora se não tiver data válida
-
-            chave = f"{data_str}_{dados['horario']}_{dados['barbeiro']}"
-            agendamentos[chave] = dados
-        return agendamentos
-    except Exception as e:
-        st.error(f"Erro ao carregar agendamentos: {e}")
-        return {}
 
 # Função para bloquear horário para um barbeiro específico
 def bloquear_horario(data, horario, barbeiro):
@@ -352,9 +320,6 @@ if data_agendamento_obj != st.session_state.data_agendamento:
 # Sempre usa a data do session_state para consistência
 data_para_tabela = st.session_state.data_agendamento.strftime('%d/%m/%Y')  # Formatar o objeto date para string DD/MM/YYYY
 data_obj_tabela = st.session_state.data_agendamento # Mantém como objeto date para pegar weekday
-
-# Carregar todos os agendamentos do dia de uma vez só
-agendamentos_do_dia = carregar_agendamentos_por_data(data_obj_tabela)
 
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
@@ -419,15 +384,10 @@ for horario in horarios_tabela:
                 bg_color = "orange"
                 color_text = "black"
             else:
-                chave = f"{data_para_tabela}_{horario}_{barbeiro}"
-                if chave in agendamentos_do_dia:
-                    status = "Ocupado"
-                    bg_color = "firebrick"
-                    color_text = "white"
-                else:
-                    status = "Disponível"
-                    bg_color = "forestgreen"
-                    color_text = "white"
+                disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+                status = "Disponível" if disponivel else "Ocupado"
+                bg_color = "forestgreen" if disponivel else "firebrick"
+                color_text = "white"    
 
         elif dia_da_semana_tabela == 5: # Sábado - Sem almoço, verifica direto
             disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
@@ -710,4 +670,3 @@ with st.form("cancelar_form"):
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
-
