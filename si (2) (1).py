@@ -261,7 +261,43 @@ def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
         st.error(f"Erro inesperado ao verificar disponibilidade do horário seguinte: {e}")
         return False
 
+# NOVA FUNÇÃO OTIMIZADA
+def buscar_agendamentos_e_bloqueios_do_dia(data_obj):
+    """
+    Busca todos os agendamentos e bloqueios para uma data específica com uma única query.
+    Retorna um set de chaves de horários ocupados para consulta rápida.
+    """
+    if not db:
+        st.error("Firestore não inicializado.")
+        return set() # Retorna um conjunto vazio em caso de erro
 
+    ocupados = set()
+    data_str = data_obj.strftime('%d/%m/%Y')
+
+    # Define o início e o fim do dia para a query no Firestore
+    start_of_day = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0)
+    end_of_day = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59)
+
+    try:
+        # A query principal que busca todos os documentos do dia
+        docs = db.collection('agendamentos').where('data', '>=', start_of_day).where('data', '<=', end_of_day).stream()
+
+        for doc in docs:
+            doc_data = doc.to_dict()
+            horario = doc_data.get('horario')
+            barbeiro = doc_data.get('barbeiro')
+            nome = doc_data.get('nome')
+
+            if horario and barbeiro:
+                # Adiciona tanto agendamentos normais quanto bloqueios ao set
+                # A chave do documento já nos diz se é um bloqueio ou não
+                # Ex: "19/08/2025_10:00_Lucas Borges" ou "19/08/2025_10:30_Lucas Borges_BLOQUEADO"
+                ocupados.add(doc.id)
+
+    except Exception as e:
+        st.error(f"Erro ao buscar agendamentos do dia: {e}")
+
+    return ocupados
 # Função para bloquear horário para um barbeiro específico
 def bloquear_horario(data, horario, barbeiro):
     if not db:
@@ -324,6 +360,9 @@ data_obj_tabela = st.session_state.data_agendamento # Mantém como objeto date p
 # Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
 st.subheader("Disponibilidade dos Barbeiros")
 
+# Usamos o objeto date diretamente do session_state
+agendamentos_do_dia = buscar_agendamentos_e_bloqueios_do_dia(st.session_state.data_agendamento)
+
 html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
 for barbeiro in barbeiros:
     html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white; min-width: 120px; text-align: center;">{barbeiro}</th>'
@@ -347,7 +386,7 @@ for horario in horarios_tabela:
         hora_int = int(horario.split(':')[0])
         minuto_int = int(horario.split(':')[1])
 
-        # ✅ Esta verificação agora está DENTRO do loop do barbeiro
+        # A lógica do "SDJ" permanece a mesma, pois não checa disponibilidade
         if horario in ["07:00", "07:30"]:
             dia_do_mes = data_obj_tabela.day
             mes_do_ano = data_obj_tabela.month
@@ -358,17 +397,8 @@ for horario in horarios_tabela:
                 html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
                 continue
 
-    # >>> REGRA ESPECIAL: Horários 07:00 e 07:30 recebem status "SDJ", exceto de 11 a 20 de julho <<<
-     # Pula o restante da lógica para este horário/barbeiro
-
-        # <<< MODIFICAÇÃO 1: Tratamento para Domingo >>>
-        #if dia_da_semana_tabela == 6: # Se for Domingo
-            #status = "Descanso"
-            #bg_color = "#A9A9A9" # Cinza escuro (DarkGray)
-            #color_text = "black"
-        # <<< FIM MODIFICAÇÃO 1 >>>
-
-        if dia_da_semana_tabela < 5:
+        # Lógica para os diferentes dias da semana
+        if dia_da_semana_tabela < 5: # DIAS DE SEMANA (Segunda a Sexta)
             dia = data_obj_tabela.day
             mes = data_obj_tabela.month
             intervalo_especial = mes == 7 and 10 <= dia <= 19
@@ -384,25 +414,42 @@ for horario in horarios_tabela:
                 bg_color = "orange"
                 color_text = "black"
             else:
-                disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+                # --- SUBSTITUIÇÃO PARA OS DIAS DE SEMANA ---
+                chave_agendamento = f"{data_para_tabela}_{horario}_{barbeiro}"
+                chave_bloqueio = f"{data_para_tabela}_{horario}_{barbeiro}_BLOQUEADO"
+                disponivel = (chave_agendamento not in agendamentos_do_dia) and \
+                             (chave_bloqueio not in agendamentos_do_dia)
+                # --- FIM DA SUBSTITUIÇÃO ---
+
                 status = "Disponível" if disponivel else "Ocupado"
                 bg_color = "forestgreen" if disponivel else "firebrick"
                 color_text = "white"    
 
-        elif dia_da_semana_tabela == 5: # Sábado - Sem almoço, verifica direto
-            disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+        elif dia_da_semana_tabela == 5: # SÁBADO
+            # --- SUBSTITUIÇÃO PARA O SÁBADO ---
+            chave_agendamento = f"{data_para_tabela}_{horario}_{barbeiro}"
+            chave_bloqueio = f"{data_para_tabela}_{horario}_{barbeiro}_BLOQUEADO"
+            disponivel = (chave_agendamento not in agendamentos_do_dia) and \
+                         (chave_bloqueio not in agendamentos_do_dia)
+            # --- FIM DA SUBSTITUIÇÃO ---
+
             status = "Disponível" if disponivel else "Ocupado"
             bg_color = "forestgreen" if disponivel else "firebrick"
             color_text = "white"
 
-        elif dia_da_semana_tabela == 6:
+        elif dia_da_semana_tabela == 6: # DOMINGO
             dia = data_obj_tabela.day
             mes = data_obj_tabela.month
             if mes == 7 and 10 <= dia <= 19:
-                disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+                # --- SUBSTITUIÇÃO PARA O DOMINGO (CASO ESPECIAL) ---
+                chave_agendamento = f"{data_para_tabela}_{horario}_{barbeiro}"
+                chave_bloqueio = f"{data_para_tabela}_{horario}_{barbeiro}_BLOQUEADO"
+                disponivel = (chave_agendamento not in agendamentos_do_dia) and \
+                             (chave_bloqueio not in agendamentos_do_dia)
+                # --- FIM DA SUBSTITUIÇÃO ---
                 status = "Disponível" if disponivel else "Ocupado"
                 bg_color = "forestgreen" if disponivel else "firebrick"
-                olor_text = "white"
+                color_text = "white" # Corrigi um typo aqui, estava 'olor_text'
             else:
                 status = "Fechado"
                 bg_color = "#A9A9A9"
@@ -670,3 +717,4 @@ with st.form("cancelar_form"):
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
