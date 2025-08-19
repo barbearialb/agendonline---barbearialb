@@ -261,43 +261,37 @@ def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
         st.error(f"Erro inesperado ao verificar disponibilidade do horário seguinte: {e}")
         return False
 
-# NOVA FUNÇÃO OTIMIZADA
+# NOVA VERSÃO CORRIGIDA DA FUNÇÃO
 def buscar_agendamentos_e_bloqueios_do_dia(data_obj):
     """
-    Busca todos os agendamentos e bloqueios para uma data específica com uma única query.
+    Busca todos os agendamentos e bloqueios para uma data específica com uma única query de igualdade.
     Retorna um set de chaves de horários ocupados para consulta rápida.
     """
     if not db:
         st.error("Firestore não inicializado.")
-        return set() # Retorna um conjunto vazio em caso de erro
+        return set()
 
     ocupados = set()
-    data_str = data_obj.strftime('%d/%m/%Y')
-
-    # Define o início e o fim do dia para a query no Firestore
-    start_of_day = datetime(data_obj.year, data_obj.month, data_obj.day, 0, 0, 0)
-    end_of_day = datetime(data_obj.year, data_obj.month, data_obj.day, 23, 59, 59)
+    
+    # Cria um objeto datetime para o início do dia (meia-noite), que corresponde exatamente
+    # ao formato salvo no Firestore.
+    data_para_query = datetime(data_obj.year, data_obj.month, data_obj.day)
 
     try:
-        # A query principal que busca todos os documentos do dia
-        docs = db.collection('agendamentos').where('data', '>=', start_of_day).where('data', '<=', end_of_day).stream()
+        docs = db.collection('agendamentos').where('data', '==', data_para_query).stream()
 
         for doc in docs:
-            doc_data = doc.to_dict()
-            horario = doc_data.get('horario')
-            barbeiro = doc_data.get('barbeiro')
-            nome = doc_data.get('nome')
-
-            if horario and barbeiro:
-                # Adiciona tanto agendamentos normais quanto bloqueios ao set
-                # A chave do documento já nos diz se é um bloqueio ou não
-                # Ex: "19/08/2025_10:00_Lucas Borges" ou "19/08/2025_10:30_Lucas Borges_BLOQUEADO"
-                ocupados.add(doc.id)
+            # O resto da função continua igual
+            ocupados.add(doc.id)
 
     except Exception as e:
         st.error(f"Erro ao buscar agendamentos do dia: {e}")
+        # Se ocorrer um erro de "index", o próprio erro do Firebase vai te dizer
+        # qual link acessar para criar o índice com um clique.
+        st.info("Se o erro mencionar 'INDEX', pode ser necessário criar um índice no Firestore. Verifique o console do Firebase.")
 
     return ocupados
+    
 # Função para bloquear horário para um barbeiro específico
 def bloquear_horario(data, horario, barbeiro):
     if not db:
@@ -717,4 +711,5 @@ with st.form("cancelar_form"):
             else:
                 # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
                 st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
 
