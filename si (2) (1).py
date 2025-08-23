@@ -1,6 +1,7 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+from google.cloud.firestore_v1.field_path import FieldPath
 from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
@@ -98,134 +99,142 @@ def enviar_email(assunto, mensagem):
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
 
-def salvar_agendamento(data, horario, nome, telefone, servicos, barbeiro):
+# SUBSTITUA A FUNÇÃO INTEIRA
+def salvar_agendamento(data_str, horario, nome, telefone, servicos, barbeiro):
     if not db:
-        st.error("Firestore não inicializado. Não é possível salvar.")
-        return False # Indicar falha
+        st.error("Firestore não inicializado.")
+        return False
 
-    chave_agendamento = f"{data}_{horario}_{barbeiro}"
-    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
-
-    # Converter a string de data para um objeto datetime.datetime
-    data_obj = datetime.strptime(data, '%d/%m/%Y')
-
-    @firestore.transactional
-    def atualizar_agendamento(transaction):
-        doc = agendamento_ref.get(transaction=transaction)
-        if doc.exists:
-            raise ValueError("Horário já ocupado.")
-        transaction.set(agendamento_ref, {
-            'nome': nome,
-            'telefone': telefone,
-            'servicos': servicos,
-            'barbeiro': barbeiro,
-            'data': data_obj,  # Salvar o objeto datetime.datetime no Firestore
-            'horario': horario
-        })
-        return True # Indicar sucesso da transação
-
-    transaction = db.transaction()
     try:
-        resultado = atualizar_agendamento(transaction)
-        return resultado # Retorna True se sucesso
+        # Converte a data string (que vem do formulário) para um objeto datetime
+        data_obj = datetime.strptime(data_str, '%d/%m/%Y')
+        
+        # Cria o ID do documento no formato correto YYYY-MM-DD
+        data_para_id = data_obj.strftime('%Y-%m-%d')
+        chave_agendamento = f"{data_para_id}_{horario}_{barbeiro}"
+        agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+        
+        # Esta é a parte que você perguntou, agora dentro da função principal
+        @firestore.transactional
+        def update_in_transaction(transaction, doc_ref):
+            doc = doc_ref.get(transaction=transaction)
+            if doc.exists:
+                # Se o documento já existe, a transação falha para evitar agendamento duplo
+                raise ValueError("Horário já ocupado por outra pessoa.")
+            
+            # Se o horário estiver livre, a transação define os novos dados
+            transaction.set(doc_ref, {
+                'data': data_obj,
+                'horario': horario,
+                'nome': nome,
+                'telefone': telefone,
+                'servicos': servicos,
+                'barbeiro': barbeiro,
+                'timestamp': firestore.SERVER_TIMESTAMP
+            })
+        
+        # Executa a transação
+        transaction = db.transaction()
+        update_in_transaction(transaction, agendamento_ref)
+        return True # Retorna sucesso
+
     except ValueError as e:
-        st.error(f"Erro ao salvar agendamento: {e}")
-        return False # Indicar falha
+        # Captura o erro "Horário já ocupado" e exibe ao utilizador
+        st.error(f"Erro ao agendar: {e}")
+        return False
     except Exception as e:
-        st.error(f"Erro inesperado ao salvar agendamento: {e}")
-        return False # Indicar falha
+        st.error(f"Erro inesperado ao salvar o agendamento: {e}")
+        return False
 
 # Função para cancelar agendamento no Firestore
-def cancelar_agendamento(data, horario, telefone, barbeiro):
+def cancelar_agendamento(doc_id, telefone_cliente):
+    """
+    Cancela um agendamento no Firestore de forma segura.
+    """
     if not db:
-        st.error("Firestore não inicializado. Não é possível cancelar.")
+        st.error("Firestore não inicializado.")
         return None
-
-    chave_agendamento = f"{data}_{horario}_{barbeiro}"
-    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
+    
     try:
-        doc = agendamento_ref.get()
-        if doc.exists and doc.to_dict()['telefone'] == telefone:
-            agendamento_data = doc.to_dict()
-            # Verificar se a data é um objeto datetime antes de formatar
-            if isinstance(agendamento_data.get('data'), datetime): # Usar .get() para segurança
-                agendamento_data['data'] = agendamento_data['data'].date().strftime('%d/%m/%Y')
-            elif isinstance(agendamento_data.get('data'), str):
-                 # Se for string, tentamos converter para datetime
-                 try:
-                     # Tentar converter de diferentes formatos comuns
-                     try:
-                         agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%Y-%m-%d').date().strftime('%d/%m/%Y')
-                     except ValueError:
-                         agendamento_data['data'] = datetime.strptime(agendamento_data['data'], '%d/%m/%Y').date().strftime('%d/%m/%Y')
+        doc_ref = db.collection('agendamentos').document(doc_id)
+        doc = doc_ref.get()
 
-                 except ValueError:
-                     st.warning("Formato de data inválido no Firestore para este agendamento.")
-                     # Pode retornar a string original ou None, dependendo do desejado
-                     agendamento_data['data'] = agendamento_data.get('data', 'Data Inválida') # Devolve a string original ou um placeholder
-            else:
-                 st.warning("Formato de data inválida ou ausente no Firestore para este agendamento.")
-                 agendamento_data['data'] = 'Data Inválida' # Define um placeholder
+        # PASSO CHAVE: VERIFICA SE O DOCUMENTO EXISTE ANTES DE TUDO
+        if not doc.exists:
+            st.error(f"Nenhum agendamento encontrado com o ID: {doc_id}")
+            return "not_found" # Retorna um código de erro
 
-            agendamento_ref.delete()
-            return agendamento_data
-        else:
-            # Se não existe ou telefone não bate, retorna None
-            return None
+        agendamento_data = doc.to_dict()
+        telefone_no_banco = agendamento_data.get('telefone', '') # Pega o telefone de forma segura
+
+        # Compara os telefones
+        if telefone_no_banco.replace(" ", "").replace("-", "") != telefone_cliente.replace(" ", "").replace("-", ""):
+            st.error("O número de telefone não corresponde ao agendamento.")
+            return "phone_mismatch" # Retorna outro código de erro
+
+        # Se tudo deu certo, deleta e retorna os dados
+        doc_ref.delete()
+        return agendamento_data
+
     except Exception as e:
-        st.error(f"Erro ao acessar o Firestore durante o cancelamento: {e}")
+        st.error(f"Ocorreu um erro ao tentar cancelar: {e}")
         return None
 
-# Nova função para desbloquear o horário seguinte
-def desbloquear_horario(data, horario, barbeiro):
+# no seu arquivo si (9).py
+
+def desbloquear_horario(data_para_id, horario, barbeiro):
+    """
+    Desbloqueia um horário usando a data já no formato correto (YYYY-MM-DD).
+    """
     if not db:
         st.error("Firestore não inicializado. Não é possível desbloquear.")
         return
 
-    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO" # Modificação aqui
+    # A função agora recebe a data JÁ no formato YYY-MM-DD, então não precisa converter.
+    # As linhas que causavam o erro foram removidas.
+    
+    chave_bloqueio = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
     agendamento_ref = db.collection('agendamentos').document(chave_bloqueio)
+    
     try:
-        doc = agendamento_ref.get()
-        if doc.exists and doc.to_dict().get('nome') == "BLOQUEADO": # Usar .get() para segurança
-            print(f"Tentando excluir a chave: {chave_bloqueio}")
-            agendamento_ref.delete()
-            print(f"Horário {horario} do barbeiro {barbeiro} na data {data} desbloqueado.")
-        else:
-             print(f"Chave de bloqueio não encontrada ou não corresponde a um bloqueio: {chave_bloqueio}")
-    except Exception as e:
-        st.error(f"Erro ao desbloquear horário: {e}")
+        # Tenta apagar o documento de bloqueio diretamente.
+        # Se o documento não existir, o Firestore não faz nada e não gera erro.
+        agendamento_ref.delete()
+        # A mensagem de sucesso agora é mostrada na tela principal.
 
-# Função para verificar disponibilidade do horário no Firebase
-# @st.cache_data # Cache pode causar problemas se a disponibilidade muda rapidamente. Removido.
-def verificar_disponibilidade(data, horario, barbeiro=None):
+    except Exception as e:
+        st.error(f"Erro ao tentar desbloquear o horário seguinte: {e}")
+
+# SUBSTITUA A FUNÇÃO INTEIRA PELA VERSÃO ABAIXO:
+def buscar_agendamentos_e_bloqueios_do_dia(data_obj):
+    """
+    Busca todos os agendamentos do dia usando um prefixo de ID seguro (YYYY-MM-DD).
+    """
     if not db:
         st.error("Firestore não inicializado.")
-        return False # Indisponível se DB não funciona
+        return set()
 
-    # Verificar agendamento regular
-    chave_agendamento = f"{data}_{horario}_{barbeiro}"
-    agendamento_ref = db.collection('agendamentos').document(chave_agendamento)
-
-    # Verificar horário bloqueado
-    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
-    bloqueio_ref = db.collection('agendamentos').document(chave_bloqueio)
+    ocupados = set()
+    prefixo_id = data_obj.strftime('%Y-%m-%d')
 
     try:
-        # Tenta obter ambos os documentos
-        doc_agendamento = agendamento_ref.get()
-        doc_bloqueio = bloqueio_ref.get()
-        # Retorna True (disponível) apenas se NENHUM dos dois existir
-        return not doc_agendamento.exists and not doc_bloqueio.exists
-    except google.api_core.exceptions.RetryError as e:
-        st.error(f"Erro de conexão com o Firestore ao verificar disponibilidade: {e}")
-        return False # Indisponível em caso de erro de conexão
-    except Exception as e:
-        st.error(f"Erro inesperado ao verificar disponibilidade: {e}")
-        return False # Indisponível em caso de erro inesperado
+        # --- SOLUÇÃO DEFINITIVA USANDO order_by, start_at e end_at ---
+        docs = db.collection('agendamentos') \
+                 .order_by(FieldPath.document_id()) \
+                 .start_at([prefixo_id]) \
+                 .end_at([prefixo_id + '\uf8ff']) \
+                 .stream()
+        # --- FIM DA CORREÇÃO ---
 
-# Função para verificar disponibilidade do horário e do horário seguinte
-# A política de retry padrão do Firestore client geralmente é suficiente.
-# @retry.Retry() # Remover se a retry padrão for suficiente
+        for doc in docs:
+            ocupados.add(doc.id)
+
+    except Exception as e:
+        st.error(f"Erro ao buscar agendamentos do dia: {e}")
+
+    return ocupados
+
+# A SUA FUNÇÃO, COM A CORREÇÃO DO NOME DA VARIÁVEL
 def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     if not db:
         st.error("Firestore não inicializado.")
@@ -234,24 +243,25 @@ def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     try:
         horario_dt = datetime.strptime(horario, '%H:%M')
         horario_seguinte_dt = horario_dt + timedelta(minutes=30)
-        # Verificar se o horário seguinte ainda está no mesmo dia e dentro do expediente
-        if horario_seguinte_dt.hour >= 20: # Ex: Se o agendamento é 19:30, não verifica 20:00
-            return False # Considera indisponível se ultrapassa o limite
+        if horario_seguinte_dt.hour >= 20:
+            return False 
 
         horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
+        data_obj = datetime.strptime(data, '%d/%m/%Y')
+        data_para_id = data_obj.strftime('%Y-%m-%d')
 
-        # Verificar agendamento regular no horário seguinte
-        chave_agendamento_seguinte = f"{data}_{horario_seguinte_str}_{barbeiro}"
+        # --- A CORREÇÃO ESTÁ AQUI ---
+        # O nome da variável foi padronizado para "chave_agendamento_seguinte"
+        chave_agendamento_seguinte = f"{data_para_id}_{horario_seguinte_str}_{barbeiro}"
         agendamento_ref_seguinte = db.collection('agendamentos').document(chave_agendamento_seguinte)
+        # --- FIM DA CORREÇÃO ---
 
-        # Verificar bloqueio no horário seguinte
-        chave_bloqueio_seguinte = f"{data}_{horario_seguinte_str}_{barbeiro}_BLOQUEADO"
+        chave_bloqueio_seguinte = f"{data_para_id}_{horario_seguinte_str}_{barbeiro}_BLOQUEADO"
         bloqueio_ref_seguinte = db.collection('agendamentos').document(chave_bloqueio_seguinte)
 
         doc_agendamento_seguinte = agendamento_ref_seguinte.get()
         doc_bloqueio_seguinte = bloqueio_ref_seguinte.get()
 
-        # Retorna True (disponível) se NENHUM existir no horário seguinte
         return not doc_agendamento_seguinte.exists and not doc_bloqueio_seguinte.exists
 
     except google.api_core.exceptions.RetryError as e:
@@ -260,31 +270,39 @@ def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro inesperado ao verificar disponibilidade do horário seguinte: {e}")
         return False
-
-
+        
 # Função para bloquear horário para um barbeiro específico
 def bloquear_horario(data, horario, barbeiro):
     if not db:
         st.error("Firestore não inicializado. Não é possível bloquear.")
-        return False # Indicar falha
+        return False
 
-    chave_bloqueio = f"{data}_{horario}_{barbeiro}_BLOQUEADO"
+    # 1. Converte a string de data "dd/mm/yyyy" para um objeto de data.
     try:
-        # Converter a string de data para um objeto datetime.datetime para consistência
         data_obj = datetime.strptime(data, '%d/%m/%Y')
+    except ValueError:
+        st.error("Formato de data inválido para bloqueio.")
+        return False
+
+    # 2. Usa o objeto de data para criar o ID no formato CORRETO (YYYY-MM-DD).
+    data_para_id = data_obj.strftime('%Y-%m-%d')
+    chave_bloqueio = f"{data_para_id}_{horario}_{barbeiro}_BLOQUEADO"
+
+    try:
+        # 3. Usa a chave correta para criar o documento de bloqueio.
         db.collection('agendamentos').document(chave_bloqueio).set({
             'nome': "BLOQUEADO",
             'telefone': "BLOQUEADO",
             'servicos': ["BLOQUEADO"],
             'barbeiro': barbeiro,
-            'data': data_obj, # Salvar como objeto datetime
-            'horario': horario
+            'data': data_obj,  # Salva o objeto de data no documento
+            'horario': horario,
+            'agendado_por': 'bloqueio_interno' # Campo para identificar a origem
         })
-        print(f"Horário {horario} do dia {data} bloqueado para {barbeiro}")
-        return True # Indicar sucesso
+        return True
     except Exception as e:
         st.error(f"Erro ao bloquear horário: {e}")
-        return False # Indicar falha
+        return False
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -315,102 +333,91 @@ data_agendamento_obj = st.date_input(
 # Atualiza o session state se o valor do widget for diferente (necessário se não usar on_change ou rerun)
 if data_agendamento_obj != st.session_state.data_agendamento:
      st.session_state.data_agendamento = data_agendamento_obj
-     # verificar_disponibilidade.clear() # Limpar cache se estivesse usando @st.cache_data
+    
 
 # Sempre usa a data do session_state para consistência
-data_para_tabela = st.session_state.data_agendamento.strftime('%d/%m/%Y')  # Formatar o objeto date para string DD/MM/YYYY
-data_obj_tabela = st.session_state.data_agendamento # Mantém como objeto date para pegar weekday
+# --- Tabela de Disponibilidade ---
 
-# Tabela de Disponibilidade (Renderizada com a data do session state) FORA do formulário
+# SUAS LINHAS - MANTIDAS EXATAMENTE COMO PEDIU
+data_para_tabela = st.session_state.data_agendamento.strftime('%d/%m/%Y')
+data_obj_tabela = st.session_state.data_agendamento
+
 st.subheader("Disponibilidade dos Barbeiros")
 
+# 1. CHAMA A FUNÇÃO RÁPIDA UMA ÚNICA VEZ
+# Usamos o objeto de data que você já tem
+agendamentos_do_dia = buscar_agendamentos_e_bloqueios_do_dia(data_obj_tabela)
+
+# 2. CRIA A VARIÁVEL COM O FORMATO CORRETO PARA O ID
+# Esta é a adição importante. Usamos o objeto de data para criar a string YYYY-MM-DD
+data_para_id_tabela = data_obj_tabela.strftime('%Y-%m-%d')
+
+# --- O resto da sua lógica de construção da tabela continua, mas usando a variável correta ---
 html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
 for barbeiro in barbeiros:
     html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white; min-width: 120px; text-align: center;">{barbeiro}</th>'
 html_table += '</tr>'
 
-# Gerar horários base dinamicamente
-dia_da_semana_tabela = data_obj_tabela.weekday()  # 0 = segunda, 6 = domingo
-horarios_tabela = []
-for h in range(8, 20):
-    for m in (0, 30):
-        horario_str = f"{h:02d}:{m:02d}"
-        horarios_tabela.append(horario_str)
+dia_da_semana_tabela = data_obj_tabela.weekday()
+horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
     for barbeiro in barbeiros:
-        status = "Indisponível"  # Default
-        bg_color = "grey"        # Default
-        color_text = "white"     # Default
-
+        status = "Indisponível"
+        bg_color = "grey"
+        color_text = "white"
         hora_int = int(horario.split(':')[0])
-        minuto_int = int(horario.split(':')[1])
 
-        # ✅ Esta verificação agora está DENTRO do loop do barbeiro
+        # A sua lógica de SDJ (mantida igual)
         if horario in ["07:00", "07:30"]:
             dia_do_mes = data_obj_tabela.day
             mes_do_ano = data_obj_tabela.month
             if not (mes_do_ano == 7 and 10 <= dia_do_mes <= 19):
                 status = "SDJ"
                 bg_color = "#696969"
-                color_text = "white"
                 html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
                 continue
 
-    # >>> REGRA ESPECIAL: Horários 07:00 e 07:30 recebem status "SDJ", exceto de 11 a 20 de julho <<<
-     # Pula o restante da lógica para este horário/barbeiro
+        # 3. A CORREÇÃO CRUCIAL
+        # Usamos a nova variável `data_para_id_tabela` para criar a chave
+        chave_agendamento = f"{data_para_id_tabela}_{horario}_{barbeiro}"
+        chave_bloqueio = f"{chave_agendamento}_BLOQUEADO"
 
-        # <<< MODIFICAÇÃO 1: Tratamento para Domingo >>>
-        #if dia_da_semana_tabela == 6: # Se for Domingo
-            #status = "Descanso"
-            #bg_color = "#A9A9A9" # Cinza escuro (DarkGray)
-            #color_text = "black"
-        # <<< FIM MODIFICAÇÃO 1 >>>
+        disponivel = (chave_agendamento not in agendamentos_do_dia) and (chave_bloqueio not in agendamentos_do_dia)
 
+        # A sua lógica de dias da semana (mantida igual)
         if dia_da_semana_tabela < 5:
             dia = data_obj_tabela.day
             mes = data_obj_tabela.month
             intervalo_especial = mes == 7 and 10 <= dia <= 19
-
             almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
             almoco_aluizio = not intervalo_especial and (hora_int == 12 or hora_int == 13)
+
             if barbeiro == "Lucas Borges" and almoco_lucas:
-                status = "Almoço"
-                bg_color = "orange"
-                color_text = "black"
+                status, bg_color, color_text = "Almoço", "orange", "black"
             elif barbeiro == "Aluizio" and almoco_aluizio:
-                status = "Almoço"
-                bg_color = "orange"
-                color_text = "black"
+                status, bg_color, color_text = "Almoço", "orange", "black"
             else:
-                disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
                 status = "Disponível" if disponivel else "Ocupado"
                 bg_color = "forestgreen" if disponivel else "firebrick"
-                color_text = "white"    
 
-        elif dia_da_semana_tabela == 5: # Sábado - Sem almoço, verifica direto
-            disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
+        elif dia_da_semana_tabela == 5:
             status = "Disponível" if disponivel else "Ocupado"
             bg_color = "forestgreen" if disponivel else "firebrick"
-            color_text = "white"
 
         elif dia_da_semana_tabela == 6:
             dia = data_obj_tabela.day
             mes = data_obj_tabela.month
             if mes == 7 and 10 <= dia <= 19:
-                disponivel = verificar_disponibilidade(data_para_tabela, horario, barbeiro)
                 status = "Disponível" if disponivel else "Ocupado"
                 bg_color = "forestgreen" if disponivel else "firebrick"
-                olor_text = "white"
             else:
-                status = "Fechado"
-                bg_color = "#A9A9A9"
-                color_text = "black"
-        # Adicionando a célula formatada
+                status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
+        
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
-
-    html_table += '</tr>' # Fecha a linha do horário
+    
+    html_table += '</tr>'
 
 html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
@@ -530,21 +537,31 @@ if submitted:
         else: # Se for "Sem preferência" e sem visagismo
             barbeiros_a_verificar = list(barbeiros) # Verifica ambos
 
+# DEPOIS (CORRETO)
         barbeiro_agendado = None
-        for b in barbeiros_a_verificar:
-            # Re-verifica almoço para o caso "Sem preferência"
-            if dia_da_semana_agendamento < 5:
-                intervalo_especial = mes == 7 and 10 <= dia <= 19
-                if not intervalo_especial:
-                    if b == "Lucas Borges" and (hora_agendamento_int == 12): continue
-                    if b == "Aluizio" and (hora_agendamento_int == 11): continue
- # Pula se Aluizio está almoçando
+# A data já está como objeto em data_obj_agendamento_form
+        data_para_id_form = data_obj_agendamento_form.strftime('%Y-%-m-%d')
 
-            # Verifica disponibilidade real no DB
-            if verificar_disponibilidade(data_agendamento_str_form, horario_agendamento, b):
+        intervalo_especial = False
+        if dia_da_semana_agendamento < 5:
+            intervalo_especial = (mes == 7 and 10 <= dia <= 19)
+            
+        for b in barbeiros_a_verificar:
+            if not intervalo_especial:
+                if b == "Lucas Borges" and (hora_agendamento_int == 12 or hora_agendamento_int == 13):
+                    continue # Pula este barbeiro se estiver em almoço
+                if b == "Aluizio" and (hora_agendamento_int == 12 or hora_agendamento_int == 13):
+                    continue # Pula este barbeiro se estiver em almoço
+
+            chave_agendamento_form = f"{data_para_id_form}_{horario_agendamento}_{b}"
+            chave_bloqueio_form = f"{chave_agendamento_form}_BLOQUEADO"
+
+    # Verifica de forma instantânea no conjunto que já foi carregado
+            if (chave_agendamento_form not in agendamentos_do_dia) and (chave_bloqueio_form not in agendamentos_do_dia):
                 barbeiro_agendado = b
                 break # Encontrou um barbeiro disponível
 
+# O resto do seu código a partir daqui continua igual...
         if not barbeiro_agendado:
             st.error(f"Horário {horario_agendamento} indisponível para os barbeiros selecionados/disponíveis. Por favor, escolha outro horário ou verifique a tabela de disponibilidade.")
             st.stop()
@@ -622,51 +639,54 @@ with st.form("cancelar_form"):
             st.error("Por favor, informe o telefone utilizado no agendamento.")
         else:
             with st.spinner("Processando cancelamento..."):
-                data_cancelar_str = data_cancelar.strftime('%d/%m/%Y') # Formata a data para string DD/MM/YYYY
-                agendamento_cancelado_data = cancelar_agendamento(data_cancelar_str, horario_cancelar, telefone_cancelar, barbeiro_cancelar)
+                data_para_id = data_cancelar.strftime('%Y-%m-%d')
+                doc_id_cancelar = f"{data_para_id}_{horario_cancelar}_{barbeiro_cancelar}"
 
-            if agendamento_cancelado_data is not None:
-                # --- Desbloquear Horário Seguinte (se aplicável) ---
-                servicos_cancelados = agendamento_cancelado_data.get('servicos', [])
-                corte_no_cancelado = any(corte in servicos_cancelados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"])
-                barba_no_cancelado = "Barba" in servicos_cancelados
-                horario_seguinte_desbloqueado = False
+                resultado_cancelamento = cancelar_agendamento(doc_id_cancelar, telefone_cancelar)
 
-                if corte_no_cancelado and barba_no_cancelado:
-                    horario_agendamento_original = agendamento_cancelado_data['horario']
-                    barbeiro_original = agendamento_cancelado_data['barbeiro']
-                    data_original_str = agendamento_cancelado_data['data'] # Já deve estar como string DD/MM/YYYY da função cancelar_agendamento
+                if isinstance(resultado_cancelamento, dict):
+                    agendamento_cancelado_data = resultado_cancelamento
+                    servicos_cancelados = agendamento_cancelado_data.get('servicos', [])
+                    corte_no_cancelado = any(corte in servicos_cancelados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"])
+                    barba_no_cancelado = "Barba" in servicos_cancelados
+                    horario_seguinte_desbloqueado = False
 
-                    horario_seguinte_dt = (datetime.strptime(horario_agendamento_original, '%H:%M') + timedelta(minutes=30))
-                    # Verifica se o horário seguinte é válido (antes das 20h)
-                    if horario_seguinte_dt.hour < 20:
-                        horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
-                        # Tenta desbloquear (a função lida com erros internamente)
-                        desbloquear_horario(data_original_str, horario_seguinte_str, barbeiro_original)
-                        horario_seguinte_desbloqueado = True # Assume que tentou, a função printa o resultado
+                    if corte_no_cancelado and barba_no_cancelado:
+                        horario_agendamento_original = agendamento_cancelado_data['horario']
+                        barbeiro_original = agendamento_cancelado_data['barbeiro']
+                        data_obj_original = agendamento_cancelado_data['data']
+
+                        horario_seguinte_dt = (datetime.strptime(horario_agendamento_original, '%H:%M') + timedelta(minutes=30))
+                        if horario_seguinte_dt.hour < 20:
+                            horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
+                            data_para_id_desbloqueio = data_obj_original.strftime('%Y-%m-%d')
+                            desbloquear_horario(data_para_id_desbloqueio, horario_seguinte_str, barbeiro_original)
+                            horario_seguinte_desbloqueado = True
+
+        # --- A sua lógica de E-mail e Mensagem de Sucesso (MANTIDA) ---
+                    resumo_cancelamento = f"""
+                    Agendamento Cancelado:
+                    Nome: {agendamento_cancelado_data.get('nome', 'N/A')}
+                    Telefone: {agendamento_cancelado_data.get('telefone', 'N/A')}
+                    Data: {data_cancelar.strftime('%d/%m/%Y')}
+                    Horário: {agendamento_cancelado_data.get('horario', 'N/A')}
+                    Barbeiro: {agendamento_cancelado_data.get('barbeiro', 'N/A')}
+                    Serviços: {', '.join(agendamento_cancelado_data.get('servicos', []))}
+                    """
+                    enviar_email("Agendamento Cancelado", resumo_cancelamento)
+        
+                    st.success("Agendamento cancelado com sucesso!")
+                    if horario_seguinte_desbloqueado:
+                        st.info("O horário seguinte, que estava bloqueado, foi liberado.")
+        
+                    time.sleep(5)
+                    st.rerun()
 
 
-                # --- Preparar e Enviar E-mail ---
-                # Usa .get() para evitar erros se algum campo não existir no Firestore
-                resumo_cancelamento = f"""
-                Agendamento Cancelado:
-                Nome: {agendamento_cancelado_data.get('nome', 'N/A')}
-                Telefone: {agendamento_cancelado_data.get('telefone', 'N/A')}
-                Data: {agendamento_cancelado_data.get('data', 'N/A')}
-                Horário: {agendamento_cancelado_data.get('horario', 'N/A')}
-                Barbeiro: {agendamento_cancelado_data.get('barbeiro', 'N/A')}
-                Serviços: {', '.join(agendamento_cancelado_data.get('servicos', []))}
-                """
-                enviar_email("Agendamento Cancelado", resumo_cancelamento)
 
-                # --- Mensagem de Sucesso e Rerun ---
-                # verificar_disponibilidade.clear() # Limpa cache se estivesse usando
-                st.success("Agendamento cancelado com sucesso!")
-                # st.info("Resumo do cancelamento:\n" + resumo_cancelamento) # Opcional exibir o resumo
-                if horario_seguinte_desbloqueado:
-                    st.info("O horário seguinte, que estava bloqueado, foi liberado.")
-                time.sleep(5)
-                st.rerun()
-            else:
-                # Mensagem se cancelamento falhar (nenhum agendamento encontrado com os dados)
-                st.error(f"Não foi encontrado agendamento para o telefone informado na data {data_cancelar_str}, horário {horario_cancelar} e com o barbeiro {barbeiro_cancelar}. Verifique os dados e tente novamente.")
+
+
+
+
+
+
