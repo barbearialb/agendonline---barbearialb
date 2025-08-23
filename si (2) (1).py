@@ -14,6 +14,11 @@ import time
 from PIL import Image, ImageDraw, ImageFont
 import io
 
+st.set_page_config(
+    page_title="Barbearia Lucas Borges",
+    page_icon="icone_barbearia.png"
+)
+    
 st.markdown(
     """
     <style>
@@ -768,6 +773,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
