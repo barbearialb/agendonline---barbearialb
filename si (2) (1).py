@@ -778,19 +778,3 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
