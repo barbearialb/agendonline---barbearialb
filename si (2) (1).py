@@ -295,8 +295,8 @@ def gerar_imagem_resumo(nome, data, horario, barbeiro, servicos):
         draw = ImageDraw.Draw(img)
         
         # Carrega a fonte com tamanhos diferentes para o título e o corpo
-        font_titulo = ImageFont.truetype(font_path, 40) # Tamanho 40 para o nome
-        font_corpo = ImageFont.truetype(font_path, 32)  # Tamanho 32 para os detalhes
+        font_titulo = ImageFont.truetype(font_path, 85) # Tamanho 40 para o nome
+        font_corpo = ImageFont.truetype(font_path, 65)  # Tamanho 32 para os detalhes
 
         # 2. Formata o texto do resumo
         # Junta a lista de serviços em uma única string, com quebra de linha se for longa
@@ -321,8 +321,8 @@ Serviços: {servicos_str}
         # 3. Define a posição e as cores do texto
         #    (X, Y) -> Distância da esquerda, Distância do topo
         #    VOCÊ PROVAVELMENTE PRECISARÁ AJUSTAR ESSES VALORES!
-        posicao_nome = (130, 700)
-        posicao_detalhes = (130, 800)
+        posicao_nome = (180, 700)
+        posicao_detalhes = (180, 800)
         
         cor_texto = (0, 0, 0) # Preto
 
@@ -768,6 +768,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
