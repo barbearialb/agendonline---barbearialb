@@ -1,3 +1,5 @@
 streamlit==1.43.2
 firebase-admin==6.7.0
+
 google-api-core==2.24.2
+Pillow
