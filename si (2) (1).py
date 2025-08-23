@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 
 st.set_page_config(
-    page_title="Barbearia Lucas Borges",
+    page_title="Agendamentos-Barbearia Lucas Borges",
     page_icon="icone_barbearia.png"
 )
     
@@ -773,6 +773,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
