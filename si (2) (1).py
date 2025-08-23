@@ -289,10 +289,9 @@ def gerar_imagem_resumo(nome, data, horario, barbeiro, servicos):
         bytes: A imagem gerada em formato PNG como bytes, pronta para download.
     """
     try:
-        # 1. Carrega a imagem de template e o arquivo de fonte
-        template_path = "template_resumo.jpg"
+        template_path = "template_resumo.png"  # <-- LINHA CORRIGIDA
         font_path = "font.ttf"
-        img = Image.open(template_path)
+        img = Image.open(template_path).convert("RGBA") # Adicionado .convert("RGBA") para melhor compatibilidade com PNG
         draw = ImageDraw.Draw(img)
         
         # Carrega a fonte com tamanhos diferentes para o título e o corpo
@@ -769,6 +768,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
