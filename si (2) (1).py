@@ -321,8 +321,8 @@ Serviços: {servicos_str}
         # 3. Define a posição e as cores do texto
         #    (X, Y) -> Distância da esquerda, Distância do topo
         #    VOCÊ PROVAVELMENTE PRECISARÁ AJUSTAR ESSES VALORES!
-        posicao_nome = (100, 450)
-        posicao_detalhes = (100, 520)
+        posicao_nome = (130, 700)
+        posicao_detalhes = (130, 800)
         
         cor_texto = (0, 0, 0) # Preto
 
@@ -768,6 +768,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
