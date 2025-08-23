@@ -428,17 +428,22 @@ agendamentos_do_dia = buscar_agendamentos_e_bloqueios_do_dia(data_obj_tabela)
 # Esta é a adição importante. Usamos o objeto de data para criar a string YYYY-MM-DD
 data_para_id_tabela = data_obj_tabela.strftime('%Y-%m-%d')
 
-# --- O resto da sua lógica de construção da tabela continua, mas usando a variável correta ---
-html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr><th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
+# --- Lógica de construção da tabela com colunas de tamanho igual ---
+html_table = '<table style="font-size: 14px; border-collapse: collapse; width: 100%; border: 1px solid #ddd;"><tr>'
+
+# 1. Cabeçalho para "Horário" com a largura definida
+html_table += '<th style="width: 33.33%; padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white;">Horário</th>'
+
+# 2. Cabeçalhos para os barbeiros, também com a largura definida
 for barbeiro in barbeiros:
-    html_table += f'<th style="padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white; min-width: 120px; text-align: center;">{barbeiro}</th>'
+    html_table += f'<th style="width: 33.33%; padding: 8px; border: 1px solid #ddd; background-color: #0e1117; color: white; text-align: center;">{barbeiro}</th>'
 html_table += '</tr>'
 
 dia_da_semana_tabela = data_obj_tabela.weekday()
 horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
 
 for horario in horarios_tabela:
-    html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
+    html_table += f'<tr><td style="width: 33.33%; padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>' # <-- ALTERADO AQUI
     for barbeiro in barbeiros:
         status = "Indisponível"
         bg_color = "grey"
@@ -491,7 +496,7 @@ for horario in horarios_tabela:
             else:
                 status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
         
-        html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
+        html_table += f'<td style="width: 33.33%; padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>' # <-- ALTERADO AQUI
     
     html_table += '</tr>'
 
@@ -773,6 +778,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
