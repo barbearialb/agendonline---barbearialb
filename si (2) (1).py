@@ -11,6 +11,8 @@ import google.api_core.retry as retry
 import random
 import pandas as pd
 import time
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 st.markdown(
     """
@@ -270,6 +272,76 @@ def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro inesperado ao verificar disponibilidade do horário seguinte: {e}")
         return False
+
+# NOVA FUNÇÃO PARA GERAR A IMAGEM DE RESUMO
+def gerar_imagem_resumo(nome, data, horario, barbeiro, servicos):
+    """
+    Gera uma imagem de resumo do agendamento.
+
+    Args:
+        nome (str): Nome do cliente.
+        data (str): Data do agendamento (ex: "22/08/2025").
+        horario (str): Horário do agendamento (ex: "10:30").
+        barbeiro (str): Nome do barbeiro.
+        servicos (list): Lista de serviços selecionados.
+
+    Returns:
+        bytes: A imagem gerada em formato PNG como bytes, pronta para download.
+    """
+    try:
+        # 1. Carrega a imagem de template e o arquivo de fonte
+        template_path = "template_resumo.jpg"
+        font_path = "font.ttf"
+        img = Image.open(template_path)
+        draw = ImageDraw.Draw(img)
+        
+        # Carrega a fonte com tamanhos diferentes para o título e o corpo
+        font_titulo = ImageFont.truetype(font_path, 40) # Tamanho 40 para o nome
+        font_corpo = ImageFont.truetype(font_path, 32)  # Tamanho 32 para os detalhes
+
+        # 2. Formata o texto do resumo
+        # Junta a lista de serviços em uma única string, com quebra de linha se for longa
+        servicos_str = ", ".join(servicos)
+        if len(servicos_str) > 30: # Se a linha de serviços for muito longa
+            servicos_formatados = '\n'.join(servicos) # Coloca um serviço por linha
+            texto_resumo = f"""
+Data: {data}
+Horário: {horario}
+Barbeiro: {barbeiro}
+Serviços:
+{servicos_formatados}
+"""
+        else:
+            texto_resumo = f"""
+Data: {data}
+Horário: {horario}
+Barbeiro: {barbeiro}
+Serviços: {servicos_str}
+"""
+
+        # 3. Define a posição e as cores do texto
+        #    (X, Y) -> Distância da esquerda, Distância do topo
+        #    VOCÊ PROVAVELMENTE PRECISARÁ AJUSTAR ESSES VALORES!
+        posicao_nome = (100, 450)
+        posicao_detalhes = (100, 520)
+        
+        cor_texto = (0, 0, 0) # Preto
+
+        # 4. "Desenha" o texto na imagem
+        draw.text(posicao_nome, nome, fill=cor_texto, font=font_titulo)
+        draw.multiline_text(posicao_detalhes, texto_resumo, fill=cor_texto, font=font_corpo, spacing=10)
+
+        # 5. Salva a imagem em um buffer de memória (sem criar um arquivo no disco)
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        return buf.getvalue()
+
+    except FileNotFoundError:
+        st.error(f"Erro: Verifique se os arquivos 'template_resumo.jpg' e 'font.ttf' estão na pasta do projeto.")
+        return None
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao gerar a imagem: {e}")
+        return None
         
 # Função para bloquear horário para um barbeiro específico
 def bloquear_horario(data, horario, barbeiro):
@@ -609,12 +681,28 @@ if submitted:
             st.info("Resumo do agendamento:\n" + resumo)
             if horario_seguinte_bloqueado:
                 st.info(f"O horário das {horario_seguinte_str} com {barbeiro_agendado} foi bloqueado para acomodar todos os serviços.")
+            
+            # ### INÍCIO DA MODIFICAÇÃO ###
+            # Chama a função para gerar a imagem com os dados do agendamento
+            imagem_bytes = gerar_imagem_resumo(
+                nome=nome,
+                data=data_agendamento_str_form,
+                horario=horario_agendamento,
+                barbeiro=barbeiro_agendado,
+                servicos=servicos_selecionados
+            )
 
-            # Limpar cache (se estivesse usando) e atualizar a página
-            # verificar_disponibilidade.clear()
-            time.sleep(5) # Pausa para o usuário ler as mensagens
+            # Se a imagem foi gerada corretamente, mostra o botão de download
+            if imagem_bytes:
+                st.download_button(
+                    label="📥 Baixar Resumo do Agendamento",
+                    data=imagem_bytes,
+                    file_name=f"agendamento_{nome.split(' ')[0]}_{data_agendamento_str_form.replace('/', '-')}.png",
+                    mime="image/png"
+                )
+            st.info("A página será atualizada em 15 segundos.")
+            time.sleep(15) 
             st.rerun()
-
         else:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
             st.error("Não foi possível completar o agendamento. Verifique as mensagens de erro acima ou tente novamente.")
@@ -681,6 +769,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
