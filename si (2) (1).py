@@ -299,9 +299,23 @@ def gerar_imagem_resumo(nome, data, horario, barbeiro, servicos):
         img = Image.open(template_path).convert("RGBA") # Adicionado .convert("RGBA") para melhor compatibilidade com PNG
         draw = ImageDraw.Draw(img)
         
-        # Carrega a fonte com tamanhos diferentes para o título e o corpo
-        font_titulo = ImageFont.truetype(font_path, 85) # Tamanho 40 para o nome
-        font_corpo = ImageFont.truetype(font_path, 65)  # Tamanho 32 para os detalhes
+        # 1. Defina a largura máxima em pixels que o nome pode ocupar.
+        LARGURA_MAXIMA_NOME = 800
+
+        # 2. Defina o tamanho inicial e o tamanho mínimo da fonte.
+        tamanho_fonte_nome = 85  # Começa com o tamanho que você gostou
+        tamanho_fonte_minimo = 30 
+
+        # 3. Carrega a fonte com o tamanho inicial.
+        font_nome = ImageFont.truetype(font_path, tamanho_fonte_nome)
+
+        # 4. Loop para reduzir o tamanho da fonte se o nome for muito largo.
+        while font_nome.getbbox(nome)[2] > LARGURA_MAXIMA_NOME and tamanho_fonte_nome > tamanho_fonte_minimo:
+            tamanho_fonte_nome -= 5 
+            font_nome = ImageFont.truetype(font_path, tamanho_fonte_nome)
+
+        # Carrega a fonte para o corpo do texto (esta linha continua existindo).
+        font_corpo = ImageFont.truetype(font_path, 65)
 
         # 2. Formata o texto do resumo
         # Junta a lista de serviços em uma única string, com quebra de linha se for longa
@@ -332,7 +346,7 @@ Serviços: {servicos_str}
         cor_texto = (0, 0, 0) # Preto
 
         # 4. "Desenha" o texto na imagem
-        draw.text(posicao_nome, nome, fill=cor_texto, font=font_titulo)
+        draw.text(posicao_nome, nome, fill=cor_texto, font=font_nome)
         draw.multiline_text(posicao_detalhes, texto_resumo, fill=cor_texto, font=font_corpo, spacing=10)
 
         # 5. Salva a imagem em um buffer de memória (sem criar um arquivo no disco)
@@ -773,6 +787,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
