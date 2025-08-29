@@ -450,10 +450,21 @@ html_table += '</tr>'
 
 dia_da_semana_tabela = data_obj_tabela.weekday()
 horarios_tabela = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+dia_tabela = data_obj_tabela.day
+mes_tabela = data_obj_tabela.month
+intervalo_especial = mes_tabela == 7 and 10 <= dia_tabela <= 19
 
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
     for barbeiro in barbeiros:
+        # A nova regra: SÓ bloqueia as 8:00 se NÃO for o intervalo especial
+        if not intervalo_especial and horario == "08:00" and barbeiro == "Lucas Borges":
+            status = "Indisponível"
+            bg_color = "#808080"
+            color_text = "white"
+            html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
+            continue
+            
         status = "Indisponível"
         bg_color = "grey"
         color_text = "white"
@@ -463,7 +474,7 @@ for horario in horarios_tabela:
         if horario in ["07:00", "07:30"]:
             dia_do_mes = data_obj_tabela.day
             mes_do_ano = data_obj_tabela.month
-            if not (mes_do_ano == 7 and 10 <= dia_do_mes <= 19):
+            if not intervalo_especial:
                 status = "SDJ"
                 bg_color = "#696969"
                 html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
@@ -576,33 +587,49 @@ if submitted:
             st.stop()
 
         # --- Validações de Horário de Almoço ---
+        intervalo_especial = mes_agendamento == 7 and 10 <= dia_agendamento <= 19
         hora_agendamento_int = int(horario_agendamento.split(':')[0])
-        minuto_agendamento_int = int(horario_agendamento.split(':')[1])
+        em_horario_de_almoco = (hora_agendamento_int == 12 or hora_agendamento_int == 13)
 
-        # Verifica almoço apenas se for dia de semana (0 a 4)
-        if dia_da_semana_agendamento < 5:
-            dia = data_obj_agendamento_form.day
-            mes = data_obj_agendamento_form.month
-            
-            intervalo_especial = mes == 7 and 10 <= dia <= 19
-            almoco_lucas = not intervalo_especial and (hora_agendamento_int == 12 or hora_agendamento_int == 13)
-            almoco_aluizio = not intervalo_especial and (hora_agendamento_int == 12 or hora_agendamento_int == 13)
-
-            # Se selecionou barbeiro específico
-            if barbeiro_selecionado == "Lucas Borges" and almoco_lucas:
-                st.error(f"Lucas Borges está em horário de almoço às {horario_agendamento}. Por favor, escolha outro horário.")
+        barbeiro_encontrado = None
+        
+        # CASO 1: O USUÁRIO ESCOLHEU UM BARBEIRO ESPECÍFICO
+        if barbeiro_selecionado != "Sem preferência":
+            # Regra 1: Verifica o bloqueio das 8:00 para o Lucas
+            if not intervalo_especial and horario_agendamento == "08:00" and barbeiro_selecionado == "Lucas Borges":
+                st.error("Lucas Borges não atende às 08:00. Por favor, escolha a partir das 08:30 ou selecione o barbeiro Aluizio.")
                 st.stop()
-            elif barbeiro_selecionado == "Aluizio" and almoco_aluizio:
-                 st.error(f"Aluizio está em horário de almoço às {horario_agendamento}. Por favor, escolha outro horário.")
-                 st.stop()
-            # Se selecionou "Sem preferência" e AMBOS estão em almoço nesse horário
-            # (Nota: Seus horários de almoço não coincidem, então essa condição específica não será atingida,
-            # mas a lógica está aqui caso os horários mudem no futuro)
-            elif barbeiro_selecionado == "Sem preferência" and almoco_lucas and almoco_aluizio:
-                 st.error(f"Ambos os barbeiros estão em horário de almoço às {horario_agendamento}. Por favor, escolha outro horário.")
-                 st.stop()
-            # Se selecionou "Sem preferência" e o horário coincide com o almoço de UM deles,
-            # o sistema tentará agendar com o outro automaticamente mais abaixo. Não precisa parar aqui.
+            
+            # Regra 2: Verifica o horário de almoço para o barbeiro selecionado
+            if not intervalo_especial and em_horario_de_almoco and dia_da_semana_agendamento < 5:
+                st.error(f"{barbeiro_selecionado} está em horário de almoço. Por favor, escolha outro horário.")
+                st.stop()
+            
+            # Se passou nas regras, verifica a disponibilidade no banco de dados
+            chave_agendamento = f"{data_para_id}_{horario_agendamento}_{barbeiro_selecionado}"
+            chave_bloqueio = f"{chave_agendamento}_BLOQUEADO"
+            if (chave_agendamento not in agendamentos_do_dia) and (chave_bloqueio not in agendamentos_do_dia):
+                barbeiro_encontrado = barbeiro_selecionado
+        
+        # CASO 2: O USUÁRIO ESCOLHEU "SEM PREFERÊNCIA"
+        else:
+            barbeiros_a_verificar = ["Aluizio", "Lucas Borges"]  # Ordem de preferência
+            for b in barbeiros_a_verificar:
+                # Regra 1: Pula o Lucas se for 8:00 e não for intervalo especial
+                if not intervalo_especial and horario_agendamento == "08:00" and b == "Lucas Borges":
+                    continue  # Pula para o próximo barbeiro da lista
+
+                # Regra 2: Pula o barbeiro se ele estiver em horário de almoço
+                if not intervalo_especial and em_horario_de_almoco and dia_da_semana_agendamento < 5:
+                    continue # Pula para o próximo barbeiro da lista
+
+                # Se passou nas regras, verifica a disponibilidade no banco de dados
+                chave_agendamento = f"{data_para_id}_{horario_agendamento}_{b}"
+                chave_bloqueio = f"{chave_agendamento}_BLOQUEADO"
+                if (chave_agendamento not in agendamentos_do_dia) and (chave_bloqueio not in agendamentos_do_dia):
+                    barbeiro_encontrado = b  # Encontramos um barbeiro!
+                    st.info(f"Agendando com {barbeiro_encontrado}, o primeiro disponível.")
+                    break  # Sai do loop, pois não precisa procurar mais
 
         # --- Validação de Visagismo ---
         servicos_visagismo = ["Abordagem de visagismo", "Consultoria de visagismo"]
@@ -787,6 +814,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
