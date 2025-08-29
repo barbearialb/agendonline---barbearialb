@@ -563,6 +563,9 @@ if submitted:
         dia_da_semana_agendamento = data_obj_agendamento_form.weekday() # 0=Segunda, 6=Domingo
         dia = data_obj_agendamento_form.day
         mes = data_obj_agendamento_form.month
+        data_para_id = data_obj_agendamento_form.strftime('%Y-%m-%d')
+        # >>> FIM DA MUDANÇA <<<
+        
         if dia_da_semana_agendamento == 6:
             if not (mes == 7 and 10 <= dia <= 19):
                 st.error("Desculpe, estamos fechados aos domingos.")
@@ -587,7 +590,6 @@ if submitted:
             st.stop()
 
         # --- Validações de Horário de Almoço ---
-        data_obj_agendamento_form.strftime('%Y-%m-%d')
         intervalo_especial = mes == 7 and 10 <= dia <= 19
         hora_agendamento_int = int(horario_agendamento.split(':')[0])
         em_horario_de_almoco = (hora_agendamento_int == 12 or hora_agendamento_int == 13)
@@ -815,6 +817,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
