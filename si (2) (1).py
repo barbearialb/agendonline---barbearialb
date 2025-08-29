@@ -587,6 +587,7 @@ if submitted:
             st.stop()
 
         # --- Validações de Horário de Almoço ---
+        data_obj_agendamento_form.strftime('%Y-%m-%d')
         intervalo_especial = mes == 7 and 10 <= dia <= 19
         hora_agendamento_int = int(horario_agendamento.split(':')[0])
         em_horario_de_almoco = (hora_agendamento_int == 12 or hora_agendamento_int == 13)
@@ -814,6 +815,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
