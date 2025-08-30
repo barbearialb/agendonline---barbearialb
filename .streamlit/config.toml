@@ -1,0 +1,17 @@
+# Arquivo: .streamlit/config.toml
+
+[theme]
+# Cor primária para widgets interativos (botões, sliders, etc.)
+primaryColor = "#FCA311"  # Amarelo Alaranjado
+
+# Cor de fundo principal do aplicativo
+backgroundColor = "#0D1B2A"  # Azul Bem Escuro
+
+# Cor de fundo para áreas secundárias, como a barra lateral
+secondaryBackgroundColor = "#1B263B"  # Azul Escuro Acinzentado
+
+# Cor do texto principal
+textColor = "#FFFFFF"  # Branco
+
+# Fonte a ser usada (sans serif é uma boa opção padrão)
+font = "sans serif"
