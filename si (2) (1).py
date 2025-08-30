@@ -18,10 +18,21 @@ st.set_page_config(
     page_title="Agendamentos-Barbearia Lucas Borges",
     page_icon="icone_barbearia.png"
 )
-    
+
 st.markdown(
     """
     <style>
+        /* --- NOVAS LINHAS PARA A FONTE --- */
+        /* 1. Importa a fonte Roboto do Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        /* 2. Aplica a fonte Roboto a todos os elementos da página */
+        html, body, [class*="st-"], [class*="css-"] {
+           font-family: 'Roboto', sans-serif;
+        }
+
+
+        /* --- SEUS ESTILOS QUE JÁ ESTAVAM AQUI --- */
         table {
             display: block !important;
             width: fit-content !important; /* Ou tente width: -webkit-fill-available !important; */
@@ -817,6 +828,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
