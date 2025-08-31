@@ -488,7 +488,7 @@ for horario in horarios_tabela:
         
         if horario in ["07:00", "07:30"] and not intervalo_especial:
             status = "SDJ"
-           bg_color = "#696969"
+            bg_color = "#696969"
     
    
         elif dia_da_semana_tabela < 5 and not intervalo_especial and horario == "08:00" and barbeiro == "Lucas Borges":
@@ -501,7 +501,7 @@ for horario in horarios_tabela:
                 status = "Fechado"
                 bg_color = "#808080"
             else:
-               status = "Ocupado"
+                status = "Ocupado"
                 bg_color = "firebrick"
                 
         # A sua lógica de dias da semana (mantida igual)
@@ -820,6 +820,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
