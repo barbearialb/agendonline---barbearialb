@@ -238,32 +238,31 @@ def desbloquear_horario(data_para_id, horario, barbeiro):
 # SUBSTITUA A FUNÇÃO INTEIRA PELA VERSÃO ABAIXO:
 def buscar_agendamentos_e_bloqueios_do_dia(data_obj):
     """
-    Busca todos os agendamentos do dia usando um prefixo de ID seguro (YYYY-MM-DD).
+    Busca todos os agendamentos e bloqueios do dia, retornando um dicionário
+    com o ID do documento como chave e os dados do documento como valor.
     """
     if not db:
         st.error("Firestore não inicializado.")
-        return set()
+        return {}
 
-    ocupados = set()
+    ocupados_map = {}
     prefixo_id = data_obj.strftime('%Y-%m-%d')
 
     try:
-        # --- SOLUÇÃO DEFINITIVA USANDO order_by, start_at e end_at ---
         docs = db.collection('agendamentos') \
                  .order_by(FieldPath.document_id()) \
                  .start_at([prefixo_id]) \
                  .end_at([prefixo_id + '\uf8ff']) \
                  .stream()
-        # --- FIM DA CORREÇÃO ---
 
         for doc in docs:
-            ocupados.add(doc.id)
+            ocupados_map[doc.id] = doc.to_dict()
 
     except Exception as e:
         st.error(f"Erro ao buscar agendamentos do dia: {e}")
 
-    return ocupados
-
+    return ocupados_map
+    
 # A SUA FUNÇÃO, COM A CORREÇÃO DO NOME DA VARIÁVEL
 def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
     if not db:
@@ -523,21 +522,43 @@ for horario in horarios_tabela:
             elif barbeiro == "Aluizio" and almoco_aluizio:
                 status, bg_color, color_text = "Almoço", "orange", "black"
             else:
-                status = "Disponível" if disponivel else "Ocupado"
-                bg_color = "forestgreen" if disponivel else "firebrick"
+                dados_agendamento = agendamentos_do_dia.get(chave_agendamento)
+                if dados_agendamento and dados_agendamento.get('nome') == 'Fechado':
+                    status = "Fechado"
+                    bg_color = "#A9A9A9"
+                    color_text = "black"
+                elif disponivel:
+                    status = "Disponível"
+                    bg_color = "forestgreen"
+                else:
+                    status = "Ocupado"
+                    bg_color = "firebrick"
 
         elif dia_da_semana_tabela == 5:
-            status = "Disponível" if disponivel else "Ocupado"
-            bg_color = "forestgreen" if disponivel else "firebrick"
+            dados_agendamento = agendamentos_do_dia.get(chave_agendamento)
+            if dados_agendamento and dados_agendamento.get('nome') == 'Fechado':
+                status = "Fechado"
+                bg_color = "#A9A9A9"
+                color_text = "black"
+            elif disponivel:
+                status = "Disponível"
+                bg_color = "forestgreen"
+            else:
+                status = "Ocupado"
+                bg_color = "firebrick"
 
         elif dia_da_semana_tabela == 6:
-            dia = data_obj_tabela.day
-            mes = data_obj_tabela.month
-            if mes == 7 and 10 <= dia <= 19:
-                status = "Disponível" if disponivel else "Ocupado"
-                bg_color = "forestgreen" if disponivel else "firebrick"
-            else:
+            if intervalo_especial: # Se for o domingo do intervalo especial
+                dados_agendamento = agendamentos_do_dia.get(chave_agendamento)
+                if dados_agendamento and dados_agendamento.get('nome') == 'Fechado':
+                    status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
+                elif disponivel:
+                    status, bg_color = "Disponível", "forestgreen"
+                else:
+                    status, bg_color = "Ocupado", "firebrick"
+            else: # Domingo normal
                 status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
+
         
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
     
@@ -843,6 +864,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
