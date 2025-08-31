@@ -236,33 +236,40 @@ def desbloquear_horario(data_para_id, horario, barbeiro):
         st.error(f"Erro ao tentar desbloquear o horário seguinte: {e}")
 
 # SUBSTITUA A FUNÇÃO INTEIRA PELA VERSÃO ABAIXO:
+# ESTA É A VERSÃO CORRETA E FINAL DA FUNÇÃO
+# (Pode substituir a sua inteira por esta)
+
 def buscar_agendamentos_e_bloqueios_do_dia(data_obj):
     """
-    Busca todos os agendamentos do dia usando um prefixo de ID seguro (YYYY-MM-DD).
+    Busca todos os agendamentos e bloqueios do dia e retorna um DICIONÁRIO
+    com os dados completos de cada um. A chave é o ID do documento.
     """
     if not db:
         st.error("Firestore não inicializado.")
-        return set()
+        # MUDANÇA 1: Em caso de erro, retorna um dicionário vazio {}
+        return {} 
 
-    ocupados = set()
+    # MUDANÇA 2: Inicializamos um DICIONÁRIO vazio, e não um set.
+    ocupados_map = {} 
     prefixo_id = data_obj.strftime('%Y-%m-%d')
 
     try:
-        # --- SOLUÇÃO DEFINITIVA USANDO order_by, start_at e end_at ---
+        # A sua consulta ao Firestore está PERFEITA!
         docs = db.collection('agendamentos') \
                  .order_by(FieldPath.document_id()) \
                  .start_at([prefixo_id]) \
                  .end_at([prefixo_id + '\uf8ff']) \
                  .stream()
-        # --- FIM DA CORREÇÃO ---
-
+        
+        # Populamos o dicionário com os dados completos
         for doc in docs:
-            ocupados.add(doc.id)
+            ocupados_map[doc.id] = doc.to_dict()
 
     except Exception as e:
         st.error(f"Erro ao buscar agendamentos do dia: {e}")
 
-    return ocupados
+    # MUDANÇA 3: Retornamos o dicionário que criamos.
+    return ocupados_map
 
 # A SUA FUNÇÃO, COM A CORREÇÃO DO NOME DA VARIÁVEL
 def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
@@ -480,6 +487,11 @@ intervalo_especial = mes_tabela == 7 and 10 <= dia_tabela <= 19
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
     for barbeiro in barbeiros:
+        
+        if not intervalo_especial and horario in ["07:00", "07:30"]:
+            status, bg_color, color_text = "SDJ", "#696969", "white"
+            html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
+            continue
         # A nova regra: SÓ bloqueia as 8:00 se NÃO for o intervalo especial
         if dia_da_semana_tabela < 5 and not intervalo_especial and horario == "08:00" and barbeiro == "Lucas Borges":
             status = "Indisponível"
@@ -487,63 +499,37 @@ for horario in horarios_tabela:
             color_text = "white"
             html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
             continue
-            
-        status = "Indisponível"
-        bg_color = "grey"
-        color_text = "white"
-        hora_int = int(horario.split(':')[0])
-
-        # A sua lógica de SDJ (mantida igual)
-        if horario in ["07:00", "07:30"]:
-            dia_do_mes = data_obj_tabela.day
-            mes_do_ano = data_obj_tabela.month
-            if not intervalo_especial:
-                status = "SDJ"
-                bg_color = "#696969"
-                html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
-                continue
 
         # 3. A CORREÇÃO CRUCIAL
         # Usamos a nova variável `data_para_id_tabela` para criar a chave
         chave_agendamento = f"{data_para_id_tabela}_{horario}_{barbeiro}"
         chave_bloqueio = f"{chave_agendamento}_BLOQUEADO"
+        dados_do_horario = agendamentos_do_dia.get(chave_agendamento) or agendamentos_do_dia.get(chave_bloqueio)
 
-        disponivel = (chave_agendamento not in agendamentos_do_dia) and (chave_bloqueio not in agendamentos_do_dia)
-
-        # A sua lógica de dias da semana (mantida igual)
-        if dia_da_semana_tabela < 5:
-            dia = data_obj_tabela.day
-            mes = data_obj_tabela.month
-            intervalo_especial = mes == 7 and 10 <= dia <= 19
-            almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
-            almoco_aluizio = not intervalo_especial and (hora_int == 12 or hora_int == 13)
-
-            if barbeiro == "Lucas Borges" and almoco_lucas:
-                status, bg_color, color_text = "Almoço", "orange", "black"
-            elif barbeiro == "Aluizio" and almoco_aluizio:
-                status, bg_color, color_text = "Almoço", "orange", "black"
+        if dados_do_horario:
+            # Se o nome for "FECHADO", o status é final.
+            if "FECHADO" in dados_do_horario.get("nome", "").upper():
+                status, bg_color, color_text = "Fechado", "#6c757d", "white"
+            # Se for qualquer outro agendamento, o status é Ocupado.
             else:
-                status = "Disponível" if disponivel else "Ocupado"
-                bg_color = "forestgreen" if disponivel else "firebrick"
+                status, bg_color, color_text = "Ocupado", "firebrick", "white"
+        else:
+            # Se não há dados, o status inicial é Disponível.
+            status, bg_color, color_text = "Disponível", "forestgreen", "white"
 
-        elif dia_da_semana_tabela == 5:
-            status = "Disponível" if disponivel else "Ocupado"
-            bg_color = "forestgreen" if disponivel else "firebrick"
+        if status == "Disponível":
+            if dia_da_semana_tabela < 5:
+                hora_int = int(horario.split(':')[0])
+                if not intervalo_especial and (hora_int == 12 or hora_int == 13):
+                    status, bg_color, color_text = "Almoço", "orange", "black"
 
-        elif dia_da_semana_tabela == 6:
-            dia = data_obj_tabela.day
-            mes = data_obj_tabela.month
-            if mes == 7 and 10 <= dia <= 19:
-                status = "Disponível" if disponivel else "Ocupado"
-                bg_color = "forestgreen" if disponivel else "firebrick"
-            else:
-                status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
+            if dia_da_semana_tabela == 6 and not intervalo_especial:
+                 status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
         
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
-    
+
     html_table += '</tr>'
 
-html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
 
 # Aba de Agendamento (FORMULÁRIO)
@@ -843,6 +829,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
