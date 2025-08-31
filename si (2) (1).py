@@ -481,7 +481,7 @@ for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
     for barbeiro in barbeiros:
         # A nova regra: SÓ bloqueia as 8:00 se NÃO for o intervalo especial
-        if not intervalo_especial and horario == "08:00" and barbeiro == "Lucas Borges":
+        if dia_da_semana_tabela < 5 and not intervalo_especial and horario == "08:00" and barbeiro == "Lucas Borges":
             status = "Indisponível"
             bg_color = "#808080"
             color_text = "white"
@@ -843,6 +843,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
