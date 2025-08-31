@@ -23,33 +23,28 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-        /* --- ESTILOS DE FONTE E SEUS ESTILOS ORIGINAIS --- */
+        /* --- SEUS ESTILOS ORIGINAIS --- */
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
         html, body, [class*="st-"], [class*="css-"] { font-family: 'Roboto', sans-serif; }
         table { display: block !important; width: fit-content !important; }
         div[data-testid="stForm"] { display: block !important; }
 
-        /* --- SOLUÇÃO DEFINITIVA: SOBRESCREVENDO O TEMA --- */
+        /* --- SOLUÇÃO FINAL BASEADA NA SUA IMAGEM --- */
 
-        /* Alvo: O botão de SUBMETER dentro do PRIMEIRO formulário */
-        div[data-testid="stForm"]:nth-of-type(1) [data-testid="stFormSubmitButton"] button {
+        /* Alvo: O PRIMEIRO formulário da página */
+        div[data-testid="stForm"]:nth-of-type(1) button {
             background-color: #28a745 !important; /* Verde */
-            border: 1px solid #28a745 !important;
+            border-color: #28a745 !important;
         }
 
-        /* Alvo: O texto do botão de SUBMETER dentro do PRIMEIRO formulário */
-        div[data-testid="stForm"]:nth-of-type(1) [data-testid="stFormSubmitButton"] p {
-            color: white !important;
-        }
-
-        /* Alvo: O botão de SUBMETER dentro do SEGUNDO formulário */
-        div[data-testid="stForm"]:nth-of-type(2) [data-testid="stFormSubmitButton"] button {
+        /* Alvo: O SEGUNDO formulário da página */
+        div[data-testid="stForm"]:nth-of-type(2) button {
             background-color: #dc3545 !important; /* Vermelho */
-            border: 1px solid #dc3545 !important;
+            border-color: #dc3545 !important;
         }
         
-        /* Alvo: O texto do botão de SUBMETER dentro do SEGUNDO formulário */
-        div[data-testid="stForm"]:nth-of-type(2) [data-testid="stFormSubmitButton"] p {
+        /* Alvo: O TEXTO dentro de TODOS os botões de formulário */
+        div[data-testid="stForm"] button p {
             color: white !important;
         }
     </style>
@@ -843,6 +838,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
