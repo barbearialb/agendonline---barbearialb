@@ -797,6 +797,9 @@ if submitted_cancelar:
             
                     time.sleep(5)
                     st.rerun()
+            except Exception as e:
+                st.error(f"Ocorreu um erro durante o processo de cancelamento: {e}")
 
                 
+
 
