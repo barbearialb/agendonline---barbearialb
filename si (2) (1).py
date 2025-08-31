@@ -41,29 +41,26 @@ st.markdown(
             display: block !important;
         }
         
-        /* --- NOVOS ESTILOS PARA OS BOTÕES --- */
+              /* --- NOVOS ESTILOS PARA OS BOTÕES (MÉTODO ROBUSTO) --- */
 
-        /* Alvo: O botão dentro do PRIMEIRO formulário da página */
-        div[data-testid="stForm"]:nth-of-type(1) button {
+        /* Alvo: O botão dentro do nosso 'envelope' de agendamento */
+        .agendar-form button {
             background-color: #28a745; /* Verde Sucesso */
             color: white;
             border-color: #28a745;
         }
-        /* Efeito ao passar o mouse por cima */
-        div[data-testid="stForm"]:nth-of-type(1) button:hover {
+        .agendar-form button:hover {
             background-color: #218838;
             border-color: #1e7e34;
         }
 
-
-        /* Alvo: O botão dentro do SEGUNDO formulário da página */
-        div[data-testid="stForm"]:nth-of-type(2) button {
+        /* Alvo: O botão dentro do nosso 'envelope' de cancelamento */
+        .cancelar-form button {
             background-color: #dc3545; /* Vermelho Perigo */
             color: white;
             border-color: #dc3545;
         }
-        /* Efeito ao passar o mouse por cima */
-        div[data-testid="stForm"]:nth-of-type(2) button:hover {
+        .cancelar-form button:hover {
             background-color: #c82333;
             border-color: #bd2130;
         }
@@ -562,6 +559,7 @@ for horario in horarios_tabela:
 html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
 
+st.markdown('<div class="agendar-form">', unsafe_allow_html=True)
 # Aba de Agendamento (FORMULÁRIO)
 with st.form("agendar_form"):
     st.subheader("Agendar Horário")
@@ -595,6 +593,8 @@ with st.form("agendar_form"):
         st.write(f"- {servico}")
 
     submitted = st.form_submit_button("Confirmar Agendamento")
+    
+st.markdown('</div>', unsafe_allow_html=True)
 
 if submitted:
     with st.spinner("Processando agendamento..."):
@@ -795,6 +795,7 @@ if submitted:
             st.error("Não foi possível completar o agendamento. Verifique as mensagens de erro acima ou tente novamente.")
 
 
+st.markdown('<div class="cancelar-form">', unsafe_allow_html=True)
 # Aba de Cancelamento
 with st.form("cancelar_form"):
     st.subheader("Cancelar Agendamento")
@@ -808,6 +809,7 @@ with st.form("cancelar_form"):
 
     barbeiro_cancelar = st.selectbox("Barbeiro do Agendamento", barbeiros)
     submitted_cancelar = st.form_submit_button("Cancelar Agendamento")
+st.markdown('</div>', unsafe_allow_html=True)
 
     if submitted_cancelar:
         if not telefone_cancelar:
@@ -856,25 +858,3 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
