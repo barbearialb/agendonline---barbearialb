@@ -23,40 +23,39 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-        /* --- ESTILOS DE FONTE --- */
+        /* --- ESTILOS DE FONTE E SEUS ESTILOS ORIGINAIS --- */
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-        html, body, [class*="st-"], [class*="css-"] {
-           font-family: 'Roboto', sans-serif;
-        }
+        html, body, [class*="st-"], [class*="css-"] { font-family: 'Roboto', sans-serif; }
+        table { display: block !important; width: fit-content !important; }
+        div[data-testid="stForm"] { display: block !important; }
 
-        /* --- SEUS ESTILOS ORIGINAIS (AGORA INCLUÍDOS) --- */
-        table {
-            display: block !important;
-            width: fit-content !important;
-        }
-        div[data-testid="stForm"] {
-            display: block !important;
-        }
+        /* --- SOLUÇÃO DEFINITIVA: SOBRESCREVENDO O TEMA --- */
 
-         /* --- TENTATIVA FINAL: SELETORES ULTRA-ESPECÍFICOS --- */
-
-        /* Alvo: O botão de SUBMETER que está dentro do PRIMEIRO formulário da página */
-        div[data-testid="stForm"]:nth-of-type(1) [data-testid="stFormSubmitButton"] {
+        /* Alvo: O botão de SUBMETER dentro do PRIMEIRO formulário */
+        div[data-testid="stForm"]:nth-of-type(1) [data-testid="stFormSubmitButton"] button {
             background-color: #28a745 !important; /* Verde */
-            color: white !important;
-            border-color: #28a745 !important;
+            border: 1px solid #28a745 !important;
         }
 
-        /* Alvo: O botão de SUBMETER que está dentro do SEGUNDO formulário da página */
-        div[data-testid="stForm"]:nth-of-type(2) [data-testid="stFormSubmitButton"] {
-            background-color: #dc3545 !important; /* Vermelho */
+        /* Alvo: O texto do botão de SUBMETER dentro do PRIMEIRO formulário */
+        div[data-testid="stForm"]:nth-of-type(1) [data-testid="stFormSubmitButton"] p {
             color: white !important;
-            border-color: #dc3545 !important;
+        }
+
+        /* Alvo: O botão de SUBMETER dentro do SEGUNDO formulário */
+        div[data-testid="stForm"]:nth-of-type(2) [data-testid="stFormSubmitButton"] button {
+            background-color: #dc3545 !important; /* Vermelho */
+            border: 1px solid #dc3545 !important;
+        }
+        
+        /* Alvo: O texto do botão de SUBMETER dentro do SEGUNDO formulário */
+        div[data-testid="stForm"]:nth-of-type(2) [data-testid="stFormSubmitButton"] p {
+            color: white !important;
         }
     </style>
     """,
     unsafe_allow_html=True,
-) 
+)
 
 # Carregar as credenciais do Firebase e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -844,6 +843,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
