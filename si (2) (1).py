@@ -814,48 +814,49 @@ st.markdown('</div>', unsafe_allow_html=True)
 if submitted_cancelar:
     if not telefone_cancelar:
         st.error("Por favor, informe o telefone utilizado no agendamento.")
-            else:
-                with st.spinner("Processando cancelamento..."):
-                    data_para_id = data_cancelar.strftime('%Y-%m-%d')
-                    doc_id_cancelar = f"{data_para_id}_{horario_cancelar}_{barbeiro_cancelar}"
+    else:
+        with st.spinner("Processando cancelamento..."):
+            data_para_id = data_cancelar.strftime('%Y-%m-%d')
+            doc_id_cancelar = f"{data_para_id}_{horario_cancelar}_{barbeiro_cancelar}"
 
-                    resultado_cancelamento = cancelar_agendamento(doc_id_cancelar, telefone_cancelar)
+            resultado_cancelamento = cancelar_agendamento(doc_id_cancelar, telefone_cancelar)
 
-                    if isinstance(resultado_cancelamento, dict):
-                        agendamento_cancelado_data = resultado_cancelamento
-                        servicos_cancelados = agendamento_cancelado_data.get('servicos', [])
-                        corte_no_cancelado = any(corte in servicos_cancelados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"])
-                        barba_no_cancelado = "Barba" in servicos_cancelados
-                        horario_seguinte_desbloqueado = False
+            if isinstance(resultado_cancelamento, dict):
+                agendamento_cancelado_data = resultado_cancelamento
+                servicos_cancelados = agendamento_cancelado_data.get('servicos', [])
+                corte_no_cancelado = any(corte in servicos_cancelados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"])
+                barba_no_cancelado = "Barba" in servicos_cancelados
+                horario_seguinte_desbloqueado = False
 
-                        if corte_no_cancelado and barba_no_cancelado:
-                            horario_agendamento_original = agendamento_cancelado_data['horario']
-                            barbeiro_original = agendamento_cancelado_data['barbeiro']
-                            data_obj_original = agendamento_cancelado_data['data']
+                if corte_no_cancelado and barba_no_cancelado:
+                    horario_agendamento_original = agendamento_cancelado_data['horario']
+                    barbeiro_original = agendamento_cancelado_data['barbeiro']
+                    data_obj_original = agendamento_cancelado_data['data']
 
-                            horario_seguinte_dt = (datetime.strptime(horario_agendamento_original, '%H:%M') + timedelta(minutes=30))
-                            if horario_seguinte_dt.hour < 20:
-                                horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
-                                data_para_id_desbloqueio = data_obj_original.strftime('%Y-%m-%d')
-                                desbloquear_horario(data_para_id_desbloqueio, horario_seguinte_str, barbeiro_original)
-                                horario_seguinte_desbloqueado = True
+                    horario_seguinte_dt = (datetime.strptime(horario_agendamento_original, '%H:%M') + timedelta(minutes=30))
+                    if horario_seguinte_dt.hour < 20:
+                        horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
+                        data_para_id_desbloqueio = data_obj_original.strftime('%Y-%m-%d')
+                        desbloquear_horario(data_para_id_desbloqueio, horario_seguinte_str, barbeiro_original)
+                        horario_seguinte_desbloqueado = True
 
         # --- A sua lógica de E-mail e Mensagem de Sucesso (MANTIDA) ---
-                        resumo_cancelamento = f"""
-                        Agendamento Cancelado:
-                        Nome: {agendamento_cancelado_data.get('nome', 'N/A')}
-                        Telefone: {agendamento_cancelado_data.get('telefone', 'N/A')}
-                        Data: {data_cancelar.strftime('%d/%m/%Y')}
-                        Horário: {agendamento_cancelado_data.get('horario', 'N/A')}
-                        Barbeiro: {agendamento_cancelado_data.get('barbeiro', 'N/A')}
-                        Serviços: {', '.join(agendamento_cancelado_data.get('servicos', []))}
-                        """
-                        enviar_email("Agendamento Cancelado", resumo_cancelamento)
+                resumo_cancelamento = f"""
+                Agendamento Cancelado:
+                Nome: {agendamento_cancelado_data.get('nome', 'N/A')}
+                Telefone: {agendamento_cancelado_data.get('telefone', 'N/A')}
+                Data: {data_cancelar.strftime('%d/%m/%Y')}
+                Horário: {agendamento_cancelado_data.get('horario', 'N/A')}
+                Barbeiro: {agendamento_cancelado_data.get('barbeiro', 'N/A')}
+                Serviços: {', '.join(agendamento_cancelado_data.get('servicos', []))}
+                """
+                enviar_email("Agendamento Cancelado", resumo_cancelamento)
         
-                        st.success("Agendamento cancelado com sucesso!")
-                        if horario_seguinte_desbloqueado:
-                            st.info("O horário seguinte, que estava bloqueado, foi liberado.")
+                st.success("Agendamento cancelado com sucesso!")
+                if horario_seguinte_desbloqueado:
+                    st.info("O horário seguinte, que estava bloqueado, foi liberado.")
         
-                        time.sleep(5)
-                        st.rerun()
+                time.sleep(5)
+                 st.rerun()
+
 
