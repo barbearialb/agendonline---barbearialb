@@ -712,7 +712,7 @@ if submitted:
             st.info("A página será atualizada em 15 segundos.")
             time.sleep(15) 
             st.rerun()
-        else:
+        except Exception as e:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
             st.error("Não foi possível completar o agendamento. Verifique as mensagens de erro acima ou tente novamente.")
 
@@ -799,3 +799,4 @@ if submitted_cancelar:
                     st.rerun()
 
                 
+
