@@ -40,6 +40,19 @@ st.markdown(
         div[data-testid="stForm"] {
             display: block !important;
         }
+              /* --- NOVOS ESTILOS PARA OS BOTÕES DE AGENDAMENTO E CANCELAMENTO --- */
+
+        /* Seleciona o PRIMEIRO formulário (div[data-testid="stForm"]) na página e, dentro dele, o botão */
+        div[data-testid="stForm"]:nth-of-type(1) button {
+            background-color: #28a745; /* Um tom de verde (sucesso) */
+            color: white; /* Cor do texto para branco, para melhor contraste */
+        }
+
+        /* Seleciona o SEGUNDO formulário (div[data-testid="stForm"]) na página e, dentro dele, o botão */
+        div[data-testid="stForm"]:nth-of-type(2) button {
+            background-color: #dc3545; /* Um tom de vermelho (perigo/cancelar) */
+            color: white; /* Cor do texto para branco */
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -828,6 +841,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
