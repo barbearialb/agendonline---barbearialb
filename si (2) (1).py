@@ -38,17 +38,17 @@ st.markdown(
             display: block !important;
         }
 
-        /* --- ESTILOS FINAIS PARA OS BOTÕES --- */
+         /* --- TENTATIVA FINAL: SELETORES ULTRA-ESPECÍFICOS --- */
 
-        /* Alvo: O botão que está dentro do PRIMEIRO formulário da página */
-        div[data-testid="stForm"]:nth-of-type(1) button {
+        /* Alvo: O botão de SUBMETER que está dentro do PRIMEIRO formulário da página */
+        div[data-testid="stForm"]:nth-of-type(1) [data-testid="stFormSubmitButton"] {
             background-color: #28a745 !important; /* Verde */
             color: white !important;
             border-color: #28a745 !important;
         }
 
-        /* Alvo: O botão que está dentro do SEGUNDO formulário da página */
-        div[data-testid="stForm"]:nth-of-type(2) button {
+        /* Alvo: O botão de SUBMETER que está dentro do SEGUNDO formulário da página */
+        div[data-testid="stForm"]:nth-of-type(2) [data-testid="stFormSubmitButton"] {
             background-color: #dc3545 !important; /* Vermelho */
             color: white !important;
             border-color: #dc3545 !important;
@@ -56,8 +56,7 @@ st.markdown(
     </style>
     """,
     unsafe_allow_html=True,
-)
-        
+) 
 
 # Carregar as credenciais do Firebase e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -845,6 +844,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
