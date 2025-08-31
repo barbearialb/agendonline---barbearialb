@@ -857,6 +857,5 @@ if submitted_cancelar:
                     st.info("O horário seguinte, que estava bloqueado, foi liberado.")
         
                 time.sleep(5)
-                 st.rerun()
-
-
+                st.rerun()
+                
