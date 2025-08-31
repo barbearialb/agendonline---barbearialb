@@ -40,6 +40,34 @@ st.markdown(
         div[data-testid="stForm"] {
             display: block !important;
         }
+        
+        /* --- NOVOS ESTILOS PARA OS BOTÕES --- */
+
+        /* Alvo: O botão dentro do PRIMEIRO formulário da página */
+        div[data-testid="stForm"]:nth-of-type(1) button {
+            background-color: #28a745; /* Verde Sucesso */
+            color: white;
+            border-color: #28a745;
+        }
+        /* Efeito ao passar o mouse por cima */
+        div[data-testid="stForm"]:nth-of-type(1) button:hover {
+            background-color: #218838;
+            border-color: #1e7e34;
+        }
+
+
+        /* Alvo: O botão dentro do SEGUNDO formulário da página */
+        div[data-testid="stForm"]:nth-of-type(2) button {
+            background-color: #dc3545; /* Vermelho Perigo */
+            color: white;
+            border-color: #dc3545;
+        }
+        /* Efeito ao passar o mouse por cima */
+        div[data-testid="stForm"]:nth-of-type(2) button:hover {
+            background-color: #c82333;
+            border-color: #bd2130;
+        }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -828,6 +856,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
