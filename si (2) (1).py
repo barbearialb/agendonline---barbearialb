@@ -45,13 +45,13 @@ st.markdown(
         /* Seleciona o PRIMEIRO formulário (div[data-testid="stForm"]) na página e, dentro dele, o botão */
         div[data-testid="stForm"]:nth-of-type(1) button {
             background-color: #28a745; /* Um tom de verde (sucesso) */
-            color: white; /* Cor do texto para branco, para melhor contraste */
+            color: white !important; /* Cor do texto para branco, para melhor contraste */
         }
 
         /* Seleciona o SEGUNDO formulário (div[data-testid="stForm"]) na página e, dentro dele, o botão */
         div[data-testid="stForm"]:nth-of-type(2) button {
             background-color: #dc3545; /* Um tom de vermelho (perigo/cancelar) */
-            color: white; /* Cor do texto para branco */
+            color: white !important; /* Cor do texto para branco */
         }
     </style>
     """,
@@ -547,6 +547,8 @@ for horario in horarios_tabela:
 html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
 
+st.markdown('<div class="confirmar-agendamento-form">', unsafe_allow_html=True)
+
 # Aba de Agendamento (FORMULÁRIO)
 with st.form("agendar_form"):
     st.subheader("Agendar Horário")
@@ -580,6 +582,7 @@ with st.form("agendar_form"):
         st.write(f"- {servico}")
 
     submitted = st.form_submit_button("Confirmar Agendamento")
+    
 
 if submitted:
     with st.spinner("Processando agendamento..."):
@@ -778,6 +781,8 @@ if submitted:
         else:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
             st.error("Não foi possível completar o agendamento. Verifique as mensagens de erro acima ou tente novamente.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # Aba de Cancelamento
@@ -841,6 +846,7 @@ with st.form("cancelar_form"):
         
                     time.sleep(5)
                     st.rerun()
+
 
 
 
