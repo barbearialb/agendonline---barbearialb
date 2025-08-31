@@ -486,14 +486,14 @@ for horario in horarios_tabela:
         
         color_text = "white"
         
-       if horario in ["07:00", "07:30"] and not intervalo_especial:
-           status = "SDJ"
+        if horario in ["07:00", "07:30"] and not intervalo_especial:
+            status = "SDJ"
            bg_color = "#696969"
     
    
-       elif dia_da_semana_tabela < 5 and not intervalo_especial and horario == "08:00" and barbeiro == "Lucas Borges":
-           status = "Indisponível"
-           bg_color = "#808080"
+        elif dia_da_semana_tabela < 5 and not intervalo_especial and horario == "08:00" and barbeiro == "Lucas Borges":
+            status = "Indisponível"
+            bg_color = "#808080"
     
     # PRIORIDADE 3: Horário já agendado (Fechado ou Ocupado)
         elif dados_agendamento:
@@ -820,6 +820,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
