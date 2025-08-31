@@ -20,37 +20,19 @@ st.set_page_config(
 )
 
 # SUBSTITUA SEU BLOCO DE ESTILO POR ESTE BLOCO FINAL
+# SUBSTITUA O SEU BLOCO DE ESTILO POR ESTE TESTE
 st.markdown(
     """
     <style>
-        /* --- ESTILOS DE FONTE --- */
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-        html, body, [class*="st-"], [class*="css-"] {
-           font-family: 'Roboto', sans-serif;
+        .agendar-form {
+            border: 3px solid green !important;
+            padding: 10px;
+            border-radius: 10px;
         }
-
-        /* --- SEUS ESTILOS ANTIGOS --- */
-        table { display: block !important; width: fit-content !important; }
-        div[data-testid="stForm"] { display: block !important; }
-
-        /* --- ESTILOS FINAIS E REFORÇADOS PARA OS BOTÕES --- */
-        .agendar-form button {
-            background-color: #28a745 !important; /* Verde com prioridade máxima */
-            color: white !important;
-            border-color: #28a745 !important;
-        }
-        .agendar-form button:hover {
-            background-color: #218838 !important;
-            border-color: #1e7e34 !important;
-        }
-        .cancelar-form button {
-            background-color: #dc3545 !important; /* Vermelho com prioridade máxima */
-            color: white !important;
-            border-color: #dc3545 !important;
-        }
-        .cancelar-form button:hover {
-            background-color: #c82333 !important;
-            border-color: #bd2130 !important;
+        .cancelar-form {
+            border: 3px solid red !important;
+            padding: 10px;
+            border-radius: 10px;
         }
     </style>
     """,
@@ -847,5 +829,6 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
