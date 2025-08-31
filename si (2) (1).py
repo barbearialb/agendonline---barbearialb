@@ -22,53 +22,16 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-        /* --- NOVAS LINHAS PARA A FONTE --- */
-        /* 1. Importa a fonte Roboto do Google Fonts */
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-
-        /* 2. Aplica a fonte Roboto a todos os elementos da página */
-        html, body, [class*="st-"], [class*="css-"] {
-           font-family: 'Roboto', sans-serif;
+        /* TESTE: PINTAR TODOS OS BOTÕES DE LARANJA */
+        button {
+            background-color: orange !important;
+            color: white !important;
         }
-
-
-        /* --- SEUS ESTILOS QUE JÁ ESTAVAM AQUI --- */
-        table {
-            display: block !important;
-            width: fit-content !important; /* Ou tente width: -webkit-fill-available !important; */
-        }
-        div[data-testid="stForm"] {
-            display: block !important;
-        }
-        
-              /* --- NOVOS ESTILOS PARA OS BOTÕES (MÉTODO ROBUSTO) --- */
-
-        /* Alvo: O botão dentro do nosso 'envelope' de agendamento */
-        .agendar-form button {
-            background-color: #28a745; /* Verde Sucesso */
-            color: white;
-            border-color: #28a745;
-        }
-        .agendar-form button:hover {
-            background-color: #218838;
-            border-color: #1e7e34;
-        }
-
-        /* Alvo: O botão dentro do nosso 'envelope' de cancelamento */
-        .cancelar-form button {
-            background-color: #dc3545; /* Vermelho Perigo */
-            color: white;
-            border-color: #dc3545;
-        }
-        .cancelar-form button:hover {
-            background-color: #c82333;
-            border-color: #bd2130;
-        }
-
     </style>
     """,
     unsafe_allow_html=True,
 )
+        
 
 # Carregar as credenciais do Firebase e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -859,3 +822,4 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
