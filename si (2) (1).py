@@ -236,40 +236,33 @@ def desbloquear_horario(data_para_id, horario, barbeiro):
         st.error(f"Erro ao tentar desbloquear o horário seguinte: {e}")
 
 # SUBSTITUA A FUNÇÃO INTEIRA PELA VERSÃO ABAIXO:
-# ESTA É A VERSÃO CORRETA E FINAL DA FUNÇÃO
-# (Pode substituir a sua inteira por esta)
-
 def buscar_agendamentos_e_bloqueios_do_dia(data_obj):
     """
-    Busca todos os agendamentos e bloqueios do dia e retorna um DICIONÁRIO
-    com os dados completos de cada um. A chave é o ID do documento.
+    Busca todos os agendamentos do dia usando um prefixo de ID seguro (YYYY-MM-DD).
     """
     if not db:
         st.error("Firestore não inicializado.")
-        # MUDANÇA 1: Em caso de erro, retorna um dicionário vazio {}
-        return {} 
+        return set()
 
-    # MUDANÇA 2: Inicializamos um DICIONÁRIO vazio, e não um set.
-    ocupados_map = {} 
+    ocupados = set()
     prefixo_id = data_obj.strftime('%Y-%m-%d')
 
     try:
-        # A sua consulta ao Firestore está PERFEITA!
+        # --- SOLUÇÃO DEFINITIVA USANDO order_by, start_at e end_at ---
         docs = db.collection('agendamentos') \
                  .order_by(FieldPath.document_id()) \
                  .start_at([prefixo_id]) \
                  .end_at([prefixo_id + '\uf8ff']) \
                  .stream()
-        
-        # Populamos o dicionário com os dados completos
+        # --- FIM DA CORREÇÃO ---
+
         for doc in docs:
-            ocupados_map[doc.id] = doc.to_dict()
+            ocupados.add(doc.id)
 
     except Exception as e:
         st.error(f"Erro ao buscar agendamentos do dia: {e}")
 
-    # MUDANÇA 3: Retornamos o dicionário que criamos.
-    return ocupados_map
+    return ocupados
 
 # A SUA FUNÇÃO, COM A CORREÇÃO DO NOME DA VARIÁVEL
 def verificar_disponibilidade_horario_seguinte(data, horario, barbeiro):
@@ -487,11 +480,6 @@ intervalo_especial = mes_tabela == 7 and 10 <= dia_tabela <= 19
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
     for barbeiro in barbeiros:
-        
-        if not intervalo_especial and horario in ["07:00", "07:30"]:
-            status, bg_color, color_text = "SDJ", "#696969", "white"
-            html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
-            continue
         # A nova regra: SÓ bloqueia as 8:00 se NÃO for o intervalo especial
         if dia_da_semana_tabela < 5 and not intervalo_especial and horario == "08:00" and barbeiro == "Lucas Borges":
             status = "Indisponível"
@@ -499,37 +487,63 @@ for horario in horarios_tabela:
             color_text = "white"
             html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
             continue
+            
+        status = "Indisponível"
+        bg_color = "grey"
+        color_text = "white"
+        hora_int = int(horario.split(':')[0])
+
+        # A sua lógica de SDJ (mantida igual)
+        if horario in ["07:00", "07:30"]:
+            dia_do_mes = data_obj_tabela.day
+            mes_do_ano = data_obj_tabela.month
+            if not intervalo_especial:
+                status = "SDJ"
+                bg_color = "#696969"
+                html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
+                continue
 
         # 3. A CORREÇÃO CRUCIAL
         # Usamos a nova variável `data_para_id_tabela` para criar a chave
         chave_agendamento = f"{data_para_id_tabela}_{horario}_{barbeiro}"
         chave_bloqueio = f"{chave_agendamento}_BLOQUEADO"
-        dados_do_horario = agendamentos_do_dia.get(chave_agendamento) or agendamentos_do_dia.get(chave_bloqueio)
 
-        if dados_do_horario:
-            # Se o nome for "FECHADO", o status é final.
-            if "FECHADO" in dados_do_horario.get("nome", "").upper():
-                status, bg_color, color_text = "Fechado", "#6c757d", "white"
-            # Se for qualquer outro agendamento, o status é Ocupado.
+        disponivel = (chave_agendamento not in agendamentos_do_dia) and (chave_bloqueio not in agendamentos_do_dia)
+
+        # A sua lógica de dias da semana (mantida igual)
+        if dia_da_semana_tabela < 5:
+            dia = data_obj_tabela.day
+            mes = data_obj_tabela.month
+            intervalo_especial = mes == 7 and 10 <= dia <= 19
+            almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
+            almoco_aluizio = not intervalo_especial and (hora_int == 12 or hora_int == 13)
+
+            if barbeiro == "Lucas Borges" and almoco_lucas:
+                status, bg_color, color_text = "Almoço", "orange", "black"
+            elif barbeiro == "Aluizio" and almoco_aluizio:
+                status, bg_color, color_text = "Almoço", "orange", "black"
             else:
-                status, bg_color, color_text = "Ocupado", "firebrick", "white"
-        else:
-            # Se não há dados, o status inicial é Disponível.
-            status, bg_color, color_text = "Disponível", "forestgreen", "white"
+                status = "Disponível" if disponivel else "Ocupado"
+                bg_color = "forestgreen" if disponivel else "firebrick"
 
-        if status == "Disponível":
-            if dia_da_semana_tabela < 5:
-                hora_int = int(horario.split(':')[0])
-                if not intervalo_especial and (hora_int == 12 or hora_int == 13):
-                    status, bg_color, color_text = "Almoço", "orange", "black"
+        elif dia_da_semana_tabela == 5:
+            status = "Disponível" if disponivel else "Ocupado"
+            bg_color = "forestgreen" if disponivel else "firebrick"
 
-            if dia_da_semana_tabela == 6 and not intervalo_especial:
-                 status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
+        elif dia_da_semana_tabela == 6:
+            dia = data_obj_tabela.day
+            mes = data_obj_tabela.month
+            if mes == 7 and 10 <= dia <= 19:
+                status = "Disponível" if disponivel else "Ocupado"
+                bg_color = "forestgreen" if disponivel else "firebrick"
+            else:
+                status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
         
         html_table += f'<td style="padding: 8px; border: 1px solid #ddd; background-color: {bg_color}; text-align: center; color: {color_text}; height: 30px;">{status}</td>'
-
+    
     html_table += '</tr>'
 
+html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
 
 # Aba de Agendamento (FORMULÁRIO)
@@ -569,116 +583,165 @@ with st.form("agendar_form"):
 
 if submitted:
     with st.spinner("Processando agendamento..."):
-        # --- 1. COLETA DE DADOS ---
-        nome_cliente = st.session_state.get("nome_cliente", "")
-        telefone_cliente = st.session_state.get("telefone_cliente", "")
-        servicos_selecionados = st.session_state.get("servicos_selecionados", [])
-        data_obj_agendamento = st.session_state.agendamento_info['data_obj']
-        horario_agendamento = st.session_state.agendamento_info['horario']
-        barbeiro_selecionado = st.session_state.agendamento_info['barbeiro']
-        data_agendamento_str = data_obj_agendamento.strftime('%d/%m/%Y')
-        data_para_id = data_obj_agendamento.strftime('%Y-%m-%d')
+        # Usar o objeto date diretamente do session state para obter o dia da semana
+        dia_da_semana_agendamento = data_obj_agendamento_form.weekday() # 0=Segunda, 6=Domingo
+        dia = data_obj_agendamento_form.day
+        mes = data_obj_agendamento_form.month
+        data_para_id = data_obj_agendamento_form.strftime('%Y-%m-%d')
+        # >>> FIM DA MUDANÇA <<<
+        
+        if dia_da_semana_agendamento == 6:
+            if not (mes == 7 and 10 <= dia <= 19):
+                st.error("Desculpe, estamos fechados aos domingos.")
+                st.stop()
 
-        # --- 2. VALIDAÇÕES DE REGRAS DE NEGÓCIO (PRIORIDADE MÁXIMA) ---
+        # <<< MODIFICAÇÃO 2: Verificar se é Domingo ANTES de tudo >>>
+        #if dia_da_semana_agendamento == 6:
+            #st.error("Desculpe, não realizamos agendamentos aos domingos.")
+            #st.stop() # Interrompe a execução do agendamento
+        # <<< FIM MODIFICAÇÃO 2 >>>
 
-        # Validação de preenchimento de campos
-        if not nome_cliente or not telefone_cliente or not servicos_selecionados:
+        # Validações básicas de preenchimento
+        if not nome or not telefone or not servicos_selecionados:
             st.error("Por favor, preencha seu nome, telefone e selecione pelo menos um serviço.")
             st.stop()
-
-        # Validação de regras de dia/horário especiais
-        dia_da_semana = data_obj_agendamento.weekday()
-        mes = data_obj_agendamento.month
-        dia = data_obj_agendamento.day
-        intervalo_especial = (mes == 7 and 10 <= dia <= 19)
-
-        # Regra do Domingo
-        if dia_da_semana == 6 and not intervalo_especial:
-            st.error("Desculpe, estamos fechados aos domingos.")
+        if horario_agendamento in ["07:00", "07:30"]:
+           dia = data_obj_agendamento_form.day
+           mes = data_obj_agendamento_form.month
+           
+           if not (mes == 7 and 10 <= dia <= 19):
+            st.error("Os horários de 07:00 e 07:30 só estão disponíveis entre os dias 11 e 19 de julho.")
             st.stop()
+
+        # --- Validações de Horário de Almoço ---
+        intervalo_especial = mes == 7 and 10 <= dia <= 19
+        hora_agendamento_int = int(horario_agendamento.split(':')[0])
+        em_horario_de_almoco = (hora_agendamento_int == 12 or hora_agendamento_int == 13)
+
+        barbeiro_encontrado = None
         
-        # Regra do horário 07:00/07:30
-        if horario_agendamento in ["07:00", "07:30"] and not intervalo_especial:
-            st.error("Os horários de 07:00 e 07:30 só estão disponíveis durante o período especial de Julho.")
-            st.stop()
-            
-        # Regra do Visagismo
-        servicos_visagismo = ["Abordagem de visagismo", "Consultoria de visagismo"]
-        visagismo_selecionado = any(s in servicos_selecionados for s in servicos_visagismo)
-        if visagismo_selecionado and barbeiro_selecionado == "Aluizio":
-            st.error("Apenas Lucas Borges realiza atendimentos de visagismo.")
-            st.stop()
-
-        # --- 3. LÓGICA DE VERIFICAÇÃO DE DISPONIBILIDADE (O CORAÇÃO DO CÓDIGO) ---
-
-        barbeiros_a_verificar = []
+        # CASO 1: O USUÁRIO ESCOLHEU UM BARBEIRO ESPECÍFICO
         if barbeiro_selecionado != "Sem preferência":
-            barbeiros_a_verificar.append(barbeiro_selecionado)
-        elif visagismo_selecionado:
-            barbeiros_a_verificar.append("Lucas Borges")
-            st.info("Serviço de visagismo selecionado. O agendamento será com Lucas Borges.")
+            # Regra 1: Verifica o bloqueio das 8:00 para o Lucas
+            if not intervalo_especial and horario_agendamento == "08:00" and barbeiro_selecionado == "Lucas Borges":
+                st.error("Lucas Borges não atende às 08:00. Por favor, escolha a partir das 08:30 ou selecione o barbeiro Aluizio.")
+                st.stop()
+            
+            # Regra 2: Verifica o horário de almoço para o barbeiro selecionado
+            if not intervalo_especial and em_horario_de_almoco and dia_da_semana_agendamento < 5:
+                st.error(f"{barbeiro_selecionado} está em horário de almoço. Por favor, escolha outro horário.")
+                st.stop()
+            
+            # Se passou nas regras, verifica a disponibilidade no banco de dados
+            chave_agendamento = f"{data_para_id}_{horario_agendamento}_{barbeiro_selecionado}"
+            chave_bloqueio = f"{chave_agendamento}_BLOQUEADO"
+            if (chave_agendamento not in agendamentos_do_dia) and (chave_bloqueio not in agendamentos_do_dia):
+                barbeiro_encontrado = barbeiro_selecionado
+        
+        # CASO 2: O USUÁRIO ESCOLHEU "SEM PREFERÊNCIA"
         else:
-            barbeiros_a_verificar = ["Aluizio", "Lucas Borges"]
+            barbeiros_a_verificar = ["Aluizio", "Lucas Borges"]  # Ordem de preferência
+            for b in barbeiros_a_verificar:
+                # Regra 1: Pula o Lucas se for 8:00 e não for intervalo especial
+                if not intervalo_especial and horario_agendamento == "08:00" and b == "Lucas Borges":
+                    continue  # Pula para o próximo barbeiro da lista
 
+                # Regra 2: Pula o barbeiro se ele estiver em horário de almoço
+                if not intervalo_especial and em_horario_de_almoco and dia_da_semana_agendamento < 5:
+                    continue # Pula para o próximo barbeiro da lista
+
+                # Se passou nas regras, verifica a disponibilidade no banco de dados
+                chave_agendamento = f"{data_para_id}_{horario_agendamento}_{b}"
+                chave_bloqueio = f"{chave_agendamento}_BLOQUEADO"
+                if (chave_agendamento not in agendamentos_do_dia) and (chave_bloqueio not in agendamentos_do_dia):
+                    barbeiro_encontrado = b  # Encontramos um barbeiro!
+                    st.info(f"Agendando com {barbeiro_encontrado}, o primeiro disponível.")
+                    break  # Sai do loop, pois não precisa procurar mais
+
+        # --- Validação de Visagismo ---
+        servicos_visagismo = ["Abordagem de visagismo", "Consultoria de visagismo"]
+        visagismo_selecionado = any(servico in servicos_selecionados for servico in servicos_visagismo)
+
+        if visagismo_selecionado and barbeiro_selecionado == "Aluizio":
+             st.error("Apenas Lucas Borges realiza atendimentos de visagismo. Por favor, selecione Lucas Borges ou remova o serviço de visagismo.")
+             st.stop()
+        # Se selecionou "Sem preferência" e visagismo, força a seleção para Lucas Borges
+        if visagismo_selecionado and barbeiro_selecionado == "Sem preferência":
+            barbeiro_final = "Lucas Borges"
+            st.info("Serviço de visagismo selecionado. Agendamento direcionado para Lucas Borges.")
+        elif barbeiro_selecionado != "Sem preferência":
+            barbeiro_final = barbeiro_selecionado
+        else:
+             barbeiro_final = None # Será definido abaixo
+
+        # --- Lógica de Atribuição e Verificação de Disponibilidade ---
+        barbeiros_a_verificar = []
+        if barbeiro_final: # Se já foi definido (Visagismo ou escolha específica)
+            barbeiros_a_verificar.append(barbeiro_final)
+        else: # Se for "Sem preferência" e sem visagismo
+            barbeiros_a_verificar = list(barbeiros) # Verifica ambos
+
+# DEPOIS (CORRETO)
         barbeiro_agendado = None
+# A data já está como objeto em data_obj_agendamento_form
+        data_para_id_form = data_obj_agendamento_form.strftime('%Y-%-m-%d')
+
+        intervalo_especial = False
+        if dia_da_semana_agendamento < 5:
+            intervalo_especial = (mes == 7 and 10 <= dia <= 19)
+            
         for b in barbeiros_a_verificar:
-            # Verificação direta e em tempo real no banco de dados
-            id_documento = f"{data_para_id}_{horario_agendamento}_{b}"
-            doc_ref = db.collection('agendamentos').document(id_documento)
-            doc = doc_ref.get()
+            if not intervalo_especial:
+                if b == "Lucas Borges" and (hora_agendamento_int == 12 or hora_agendamento_int == 13):
+                    continue # Pula este barbeiro se estiver em almoço
+                if b == "Aluizio" and (hora_agendamento_int == 12 or hora_agendamento_int == 13):
+                    continue # Pula este barbeiro se estiver em almoço
 
-            if not doc.exists: # Se o documento NÃO existe, o horário está LIVRE!
+            chave_agendamento_form = f"{data_para_id_form}_{horario_agendamento}_{b}"
+            chave_bloqueio_form = f"{chave_agendamento_form}_BLOQUEADO"
+
+    # Verifica de forma instantânea no conjunto que já foi carregado
+            if (chave_agendamento_form not in agendamentos_do_dia) and (chave_bloqueio_form not in agendamentos_do_dia):
                 barbeiro_agendado = b
-                break # Encontrou um barbeiro, para o loop.
+                break # Encontrou um barbeiro disponível
 
-        # Se o loop terminou e não encontrou ninguém, o horário está ocupado.
+# O resto do seu código a partir daqui continua igual...
         if not barbeiro_agendado:
-            st.error(f"Desculpe, o horário das {horario_agendamento} não está mais disponível. Por favor, escolha outro.")
+            st.error(f"Horário {horario_agendamento} indisponível para os barbeiros selecionados/disponíveis. Por favor, escolha outro horário ou verifique a tabela de disponibilidade.")
             st.stop()
 
-        # --- 4. VALIDAÇÃO E BLOQUEIO DO HORÁRIO SEGUINTE (se necessário) ---
-        
+        # --- Verificação de Horário Seguinte para Corte+Barba ---
         precisa_bloquear_proximo = False
-        corte_selecionado = any(c in servicos_selecionados for c in ["Tradicional", "Social", "Degradê", "Navalhado"])
+        corte_selecionado = any(corte in servicos_selecionados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"])
         barba_selecionada = "Barba" in servicos_selecionados
 
         if corte_selecionado and barba_selecionada:
-            horario_seguinte_dt = datetime.strptime(horario_agendamento, '%H:%M') + timedelta(minutes=30)
-            horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
-            id_doc_seguinte = f"{data_para_id}_{horario_seguinte_str}_{barbeiro_agendado}"
-            doc_ref_seguinte = db.collection('agendamentos').document(id_doc_seguinte)
-            doc_seguinte = doc_ref_seguinte.get()
-
-            if doc_seguinte.exists:
-                st.error(f"Não é possível agendar Corte e Barba. O barbeiro {barbeiro_agendado} já está ocupado às {horario_seguinte_str}.")
+            if not verificar_disponibilidade_horario_seguinte(data_agendamento_str_form, horario_agendamento, barbeiro_agendado):
+                horario_seguinte_dt = datetime.strptime(horario_agendamento, '%H:%M') + timedelta(minutes=30)
+                horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
+                st.error(f"O barbeiro {barbeiro_agendado} não poderá atender para corte e barba, pois já está ocupado no horário seguinte ({horario_seguinte_str}). Por favor, escolha serviços que caibam em 30 minutos ou selecione outro horário/barbeiro.")
                 st.stop()
             else:
                 precisa_bloquear_proximo = True
 
-        # --- 5. SALVAR NO BANCO DE DADOS E FINALIZAR ---
-        # Se chegamos aqui, está tudo certo para salvar.
-        try:
-            # Salva o agendamento principal
-            user_data = {
-                'nome': nome_cliente, 'telefone': telefone_cliente, 'servicos': servicos_selecionados,
-                'data': data_para_id, 'horario': horario_agendamento, 'barbeiro': barbeiro_agendado,
-                'timestamp': firestore.SERVER_TIMESTAMP
-            }
-            db.collection('agendamentos').document(f"{data_para_id}_{horario_agendamento}_{barbeiro_agendado}").set(user_data)
+        # --- Salvar Agendamento e Bloquear (se necessário) ---
+        agendamento_salvo = salvar_agendamento(data_agendamento_str_form, horario_agendamento, nome, telefone, servicos_selecionados, barbeiro_agendado)
 
-            # Bloqueia o horário seguinte se for Corte+Barba
+        if agendamento_salvo:
+            horario_seguinte_bloqueado = False
             if precisa_bloquear_proximo:
-                horario_seguinte_str = (datetime.strptime(horario_agendamento, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-                db.collection('agendamentos').document(f"{data_para_id}_{horario_seguinte_str}_{barbeiro_agendado}_BLOQUEADO").set({
-                    'nome': 'Fechado', 'motivo': f'Extensão de {nome_cliente}', 'timestamp': firestore.SERVER_TIMESTAMP
-                })
+                horario_seguinte_dt = datetime.strptime(horario_agendamento, '%H:%M') + timedelta(minutes=30)
+                horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
+                horario_seguinte_bloqueado = bloquear_horario(data_agendamento_str_form, horario_seguinte_str, barbeiro_agendado)
+                if not horario_seguinte_bloqueado:
+                     st.warning("O agendamento principal foi salvo, mas houve um erro ao bloquear o horário seguinte. Por favor, entre em contato com a barbearia se necessário.")
 
 
             # --- Preparar e Enviar E-mail ---
             resumo = f"""
-            Nome: {nome_cliente}
-            Telefone: {telefone_cliente}
-            Data: {data_agendamento_str}
+            Nome: {nome}
+            Telefone: {telefone}
+            Data: {data_agendamento_str_form}
             Horário: {horario_agendamento}
             Barbeiro: {barbeiro_agendado}
             Serviços: {', '.join(servicos_selecionados)}
@@ -688,14 +751,14 @@ if submitted:
             # --- Mensagem de Sucesso e Rerun ---
             st.success("Agendamento confirmado com sucesso!")
             st.info("Resumo do agendamento:\n" + resumo)
-            if precisa_bloquear_proximo:
+            if horario_seguinte_bloqueado:
                 st.info(f"O horário das {horario_seguinte_str} com {barbeiro_agendado} foi bloqueado para acomodar todos os serviços.")
             
             # ### INÍCIO DA MODIFICAÇÃO ###
             # Chama a função para gerar a imagem com os dados do agendamento
             imagem_bytes = gerar_imagem_resumo(
-                nome=nome_cliente,
-                data=data_agendamento_str,
+                nome=nome,
+                data=data_agendamento_str_form,
                 horario=horario_agendamento,
                 barbeiro=barbeiro_agendado,
                 servicos=servicos_selecionados
@@ -706,15 +769,16 @@ if submitted:
                 st.download_button(
                     label="📥 Baixar Resumo do Agendamento",
                     data=imagem_bytes,
-                    file_name=f"agendamento_{nome_cliente.split(' ')[0]}_{data_agendamento_str.replace('/', '-')}.png",
+                    file_name=f"agendamento_{nome.split(' ')[0]}_{data_agendamento_str_form.replace('/', '-')}.png",
                     mime="image/png"
                 )
             st.info("A página será atualizada em 15 segundos.")
             time.sleep(15) 
             st.rerun()
-        except Exception as e:
+        else:
             # Mensagem de erro se salvar_agendamento falhar (já exibida pela função)
             st.error("Não foi possível completar o agendamento. Verifique as mensagens de erro acima ou tente novamente.")
+
 
 
 # Aba de Cancelamento
@@ -736,70 +800,55 @@ if submitted_cancelar:
         st.error("Por favor, informe o telefone utilizado no agendamento.")
     else:
         with st.spinner("Processando cancelamento..."):
-            # --- 1. PREPARAÇÃO DOS DADOS ---
             data_para_id = data_cancelar.strftime('%Y-%m-%d')
-            doc_id_principal = f"{data_para_id}_{horario_cancelar}_{barbeiro_cancelar}"
+            doc_id_cancelar = f"{data_para_id}_{horario_cancelar}_{barbeiro_cancelar}"
 
-            try:
-                # --- 2. EXECUÇÃO DO CANCELAMENTO PRINCIPAL ---
-                # Esta função busca o doc, valida o telefone e o deleta.
-                # Ela retorna os dados do agendamento cancelado em caso de sucesso.
-                resultado_cancelamento = cancelar_agendamento(doc_id_principal, telefone_cancelar)
+            resultado_cancelamento = cancelar_agendamento(doc_id_cancelar, telefone_cancelar)
 
-                # Se a função retornou uma string, foi um erro (ex: telefone não confere)
-                if isinstance(resultado_cancelamento, str):
-                    st.error(resultado_cancelamento)
-                    st.stop()
+            if isinstance(resultado_cancelamento, dict):
+                agendamento_cancelado_data = resultado_cancelamento
+                servicos_cancelados = agendamento_cancelado_data.get('servicos', [])
+                corte_no_cancelado = any(corte in servicos_cancelados for corte in ["Tradicional", "Social", "Degradê", "Navalhado"])
+                barba_no_cancelado = "Barba" in servicos_cancelados
+                horario_seguinte_desbloqueado = False
+
+                if corte_no_cancelado and barba_no_cancelado:
+                    horario_agendamento_original = agendamento_cancelado_data['horario']
+                    barbeiro_original = agendamento_cancelado_data['barbeiro']
+                    data_obj_original = agendamento_cancelado_data['data']
+
+                    horario_seguinte_dt = (datetime.strptime(horario_agendamento_original, '%H:%M') + timedelta(minutes=30))
+                    if horario_seguinte_dt.hour < 20:
+                        horario_seguinte_str = horario_seguinte_dt.strftime('%H:%M')
+                        data_para_id_desbloqueio = data_obj_original.strftime('%Y-%m-%d')
+                        desbloquear_horario(data_para_id_desbloqueio, horario_seguinte_str, barbeiro_original)
+                        horario_seguinte_desbloqueado = True
+
+        # --- A sua lógica de E-mail e Mensagem de Sucesso (MANTIDA) ---
+                resumo_cancelamento = f"""
+                Agendamento Cancelado:
+                Nome: {agendamento_cancelado_data.get('nome', 'N/A')}
+                Telefone: {agendamento_cancelado_data.get('telefone', 'N/A')}
+                Data: {data_cancelar.strftime('%d/%m/%Y')}
+                Horário: {agendamento_cancelado_data.get('horario', 'N/A')}
+                Barbeiro: {agendamento_cancelado_data.get('barbeiro', 'N/A')}
+                Serviços: {', '.join(agendamento_cancelado_data.get('servicos', []))}
+                """
+                enviar_email("Agendamento Cancelado", resumo_cancelamento)
+        
+                st.success("Agendamento cancelado com sucesso!")
+                if horario_seguinte_desbloqueado:
+                    st.info("O horário seguinte, que estava bloqueado, foi liberado.")
+        
+                time.sleep(5)
+                st.rerun()
                 
-                # Se retornou um dicionário, o cancelamento principal deu certo.
-                if isinstance(resultado_cancelamento, dict):
-                    agendamento_cancelado = resultado_cancelamento
-                    
-                    # --- 3. LÓGICA PARA DESBLOQUEAR HORÁRIO SEGUINTE (SE FOR O CASO) ---
-                    servicos = agendamento_cancelado.get('servicos', [])
-                    corte_selecionado = any(c in servicos for c in ["Tradicional", "Social", "Degradê", "Navalhado"])
-                    barba_selecionada = "Barba" in servicos
 
-                    horario_seguinte_desbloqueado = False
-                    if corte_selecionado and barba_selecionada:
-                        # Calculamos o ID exato do documento de bloqueio
-                        horario_original = agendamento_cancelado.get('horario')
-                        horario_seguinte_str = (datetime.strptime(horario_original, '%H:%M') + timedelta(minutes=30)).strftime('%H:%M')
-                        
-                        # Usamos o mesmo padrão de ID que foi usado para criar o bloqueio
-                        id_documento_bloqueado = f"{data_para_id}_{horario_seguinte_str}_{barbeiro_cancelar}_BLOQUEADO"
-                        
-                        # Tentamos deletar o documento de bloqueio diretamente
-                        doc_ref_bloqueio = db.collection('agendamentos').document(id_documento_bloqueado)
-                        doc_bloqueio = doc_ref_bloqueio.get()
 
-                        # Apenas tentamos deletar se o bloqueio realmente existir
-                        if doc_bloqueio.exists:
-                            doc_ref_bloqueio.delete()
-                            horario_seguinte_desbloqueado = True
 
-                    # --- 4. MENSAGEM DE SUCESSO E NOTIFICAÇÃO ---
-                    # (Sua lógica de e-mail e sucesso, sem alterações)
-                    resumo_cancelamento = f"""
-                    Agendamento Cancelado:
-                    Nome: {agendamento_cancelado.get('nome', 'N/A')}
-                    Telefone: {agendamento_cancelado.get('telefone', 'N/A')}
-                    Data: {data_cancelar.strftime('%d/%m/%Y')}
-                    Horário: {agendamento_cancelado.get('horario', 'N/A')}
-                    Barbeiro: {agendamento_cancelado.get('barbeiro', 'N/A')}
-                    Serviços: {', '.join(agendamento_cancelado.get('servicos', []))}
-                    """
-                    enviar_email("Agendamento Cancelado", resumo_cancelamento)
-            
-                    st.success("Agendamento cancelado com sucesso!")
-                    if horario_seguinte_desbloqueado:
-                        st.info("O horário seguinte, que estava bloqueado para Corte+Barba, também foi liberado.")
-            
-                    time.sleep(5)
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Ocorreu um erro durante o processo de cancelamento: {e}")
 
-                
+
+
+
 
 
