@@ -511,16 +511,19 @@ for horario in horarios_tabela:
 
         # A sua lógica de dias da semana (mantida igual)
         if dia_da_semana_tabela < 5:
-            dia = data_obj_tabela.day
-            mes = data_obj_tabela.month
-            intervalo_especial = mes == 7 and 10 <= dia <= 19
             almoco_lucas = not intervalo_especial and (hora_int == 12 or hora_int == 13)
             almoco_aluizio = not intervalo_especial and (hora_int == 12 or hora_int == 13)
 
-            if barbeiro == "Lucas Borges" and almoco_lucas:
-                status, bg_color, color_text = "Almoço", "orange", "black"
-            elif barbeiro == "Aluizio" and almoco_aluizio:
-                status, bg_color, color_text = "Almoço", "orange", "black"
+            # ===== AQUI ESTÁ A MUDANÇA =====
+            # Verificamos o almoço primeiro
+            if (barbeiro == "Lucas Borges" and almoco_lucas) or (barbeiro == "Aluizio" and almoco_aluizio):
+                # Agora, verificamos se esse horário de almoço foi fechado manualmente
+                dados_agendamento = agendamentos_do_dia.get(chave_agendamento)
+                if dados_agendamento and dados_agendamento.get('nome') == 'Fechado':
+                    status, bg_color, color_text = "Fechado", "#A9A9A9", "black"
+                else:
+                    # Se não foi fechado, continua como Almoço
+                    status, bg_color, color_text = "Almoço", "orange", "black"
             else:
                 dados_agendamento = agendamentos_do_dia.get(chave_agendamento)
                 if dados_agendamento and dados_agendamento.get('nome') == 'Fechado':
@@ -864,6 +867,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
