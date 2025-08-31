@@ -460,9 +460,7 @@ st.subheader("Disponibilidade dos Barbeiros")
 # 1. CHAMA A FUNÇÃO RÁPIDA UMA ÚNICA VEZ
 # Usamos o objeto de data que você já tem
 agendamentos_do_dia = buscar_agendamentos_e_bloqueios_do_dia(data_obj_tabela)
-
-# 2. CRIA A VARIÁVEL COM O FORMATO CORRETO PARA O ID
-# Esta é a adição importante. Usamos o objeto de data para criar a string YYYY-MM-DD
+data_selecionada_str = data_obj_tabela.strftime('%Y-%m-%d')
 data_para_id_tabela = data_obj_tabela.strftime('%Y-%m-%d')
 
 # --- O resto da sua lógica de construção da tabela continua, mas usando a variável correta ---
@@ -480,7 +478,7 @@ intervalo_especial = mes_tabela == 7 and 10 <= dia_tabela <= 19
 for horario in horarios_tabela:
     html_table += f'<tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">{horario}</td>'
     for barbeiro in barbeiros:
-        chave_celula = f"{data_selecionada_str}_{horario}_{barbeiro}"
+        chave_celula = f"{data_selecionada_str}_{horario}_{barbeiro}" 
         
         dados_agendamento = agendamentos_do_dia.get(chave_celula)
         
@@ -820,6 +818,7 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
 
 
