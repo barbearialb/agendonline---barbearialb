@@ -19,6 +19,26 @@ st.set_page_config(
     page_icon="icone_barbearia.png"
 )
 
+# --- ADICIONE ESTE BLOCO NO INÍCIO DO CÓDIGO ---
+
+# Documentação: Inicializa todas as variáveis de sessão necessárias para
+# o funcionamento do formulário inteligente. Isso previne o "AttributeError",
+# garantindo que st.session_state.nome_cliente (e os outros) sempre existam
+# desde o momento em que o aplicativo é carregado.
+
+if 'data_agendamento' not in st.session_state:
+    st.session_state.data_agendamento = datetime.now().date()
+
+# Bloco para os dados do cliente (ESTE É O QUE ESTÁ FALTANDO)
+if 'nome_cliente' not in st.session_state:
+    st.session_state.nome_cliente = ""
+if 'telefone_cliente' not in st.session_state:
+    st.session_state.telefone_cliente = ""
+if 'servicos_selecionados' not in st.session_state:
+    # Pré-seleciona o serviço mais comum. Mude se for outro.
+    st.session_state.servicos_selecionados = ["Corte de Cabelo"]
+
+# --- FIM DO BLOCO DE CÓDIGO A SER ADICIONADO ---
 
 st.markdown(
     """
@@ -56,6 +76,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
 
 # Carregar as credenciais do Firebase e-mail a partir do Streamlit secrets
 FIREBASE_CREDENTIALS = None
@@ -936,4 +957,5 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
 
