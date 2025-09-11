@@ -415,6 +415,60 @@ def bloquear_horario(data, horario, barbeiro):
     except Exception as e:
         st.error(f"Erro ao bloquear horário: {e}")
         return False
+        
+# NOVA FUNÇÃO - COLE ISTO NO SEU CÓDIGO
+def gerar_horarios_disponiveis(barbeiro_selecionado, data_obj, agendamentos_do_dia):
+    """
+    Gera uma lista de horários disponíveis para um barbeiro específico na data selecionada.
+
+    Args:
+        barbeiro_selecionado (str): O nome do barbeiro a verificar.
+        data_obj (datetime.date): O objeto de data para a verificação.
+        agendamentos_do_dia (dict): O dicionário com os agendamentos já buscados do Firestore.
+
+    Returns:
+        list: Uma lista de strings com os horários disponíveis (ex: ["09:00", "09:30"]).
+    """
+    horarios_disponiveis = []
+    horarios_base = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    data_para_id = data_obj.strftime('%Y-%m-%d')
+    dia_da_semana = data_obj.weekday()  # 0=Segunda, 6=Domingo
+    dia = data_obj.day
+    mes = data_obj.month
+    intervalo_especial = mes == 7 and 10 <= dia <= 19
+
+    # Se for um domingo normal, não há horários
+    if dia_da_semana == 6 and not intervalo_especial:
+        return []
+
+    for horario in horarios_base:
+        # 1. Regra do SDJ (07:00 e 07:30)
+        if horario in ["07:00", "07:30"] and not intervalo_especial:
+            continue # Pula este horário
+
+        # 2. Verifica se já está agendado ou bloqueado no Firestore
+        chave_agendamento = f"{data_para_id}_{horario}_{barbeiro_selecionado}"
+        chave_bloqueio = f"{chave_agendamento}_BLOQUEADO"
+        if chave_agendamento in agendamentos_do_dia or chave_bloqueio in agendamentos_do_dia:
+            continue # Pula este horário, pois está ocupado
+
+        # 3. Regras de negócio específicas (almoço, início do dia, etc.)
+        # Regra do início do dia do Lucas Borges
+        if dia_da_semana < 5 and not intervalo_especial and horario == "08:00" and barbeiro_selecionado == "Lucas Borges":
+            continue
+
+        # Regra do almoço para ambos em dias de semana
+        hora_int = int(horario.split(':')[0])
+        em_horario_de_almoco = (hora_int == 12 or hora_int == 13)
+        if dia_da_semana < 5 and not intervalo_especial and em_horario_de_almoco:
+            continue
+
+        # Se passou por todas as verificações, o horário está disponível!
+        horarios_disponiveis.append(horario)
+
+    return horarios_disponiveis
+
+# FIM DA NOVA FUNÇÃO
 
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
@@ -571,38 +625,55 @@ html_table += '</table>'
 st.markdown(html_table, unsafe_allow_html=True)
 
 # Aba de Agendamento (FORMULÁRIO)
+# Substitua sua seção de formulário inteira por esta
 with st.form("agendar_form"):
     st.subheader("Agendar Horário")
     nome = st.text_input("Nome")
     telefone = st.text_input("Telefone")
 
-    # Usar o valor do session state para a data DENTRO do formulário
-    # A data exibida aqui será a mesma da tabela, pois ambas usam session_state
     st.write(f"Data selecionada: **{st.session_state.data_agendamento.strftime('%d/%m/%Y')}**")
-    data_agendamento_str_form = st.session_state.data_agendamento.strftime('%d/%m/%Y') # String para salvar
-    data_obj_agendamento_form = st.session_state.data_agendamento # Objeto date para validações
-
-    # Geração da lista de horários completa para agendamento
-    horarios_base_agendamento = [f"{h:02d}:{m:02d}" for h in range(8, 20) for m in (0, 30)]
+    data_agendamento_str_form = st.session_state.data_agendamento.strftime('%d/%m/%Y')
+    data_obj_agendamento_form = st.session_state.data_agendamento
 
     barbeiro_selecionado = st.selectbox("Escolha o barbeiro", barbeiros + ["Sem preferência"])
 
-    # Filtrar horários de almoço com base no barbeiro selecionado ou "Sem preferência"
-    # (Opcional: Poderia filtrar aqui, mas a validação no submit é mais robusta)
-    horarios_disponiveis_dropdown = horarios_base_agendamento # Por enquanto, mostra todos
-    # --- Lógica de filtragem complexa poderia entrar aqui ---
-    # Mas é mais seguro validar APÓS o submit, pois a disponibilidade pode mudar
+    # --- INÍCIO DA MÁGICA ---
+    # Agora geramos a lista de horários dinamicamente!
+    
+    horarios_para_exibir = []
+    
+    if barbeiro_selecionado == "Sem preferência":
+        # Se for "Sem preferência", pegamos os horários de ambos e juntamos
+        horarios_aluizio = gerar_horarios_disponiveis("Aluizio", data_obj_agendamento_form, agendamentos_do_dia)
+        horarios_lucas = gerar_horarios_disponiveis("Lucas Borges", data_obj_agendamento_form, agendamentos_do_dia)
+        # Usamos set() para unir as duas listas e remover duplicados, depois sorted() para ordenar
+        horarios_para_exibir = sorted(list(set(horarios_aluizio + horarios_lucas)))
+    else:
+        # Se um barbeiro específico foi escolhido, pegamos apenas os horários dele
+        horarios_para_exibir = gerar_horarios_disponiveis(barbeiro_selecionado, data_obj_agendamento_form, agendamentos_do_dia)
 
-    horario_agendamento = st.selectbox("Horário", horarios_disponiveis_dropdown)
+    # Verificamos se existe algum horário disponível para exibir
+    if not horarios_para_exibir:
+        st.warning(f"Não há horários disponíveis para '{barbeiro_selecionado}' na data selecionada. Por favor, verifique a tabela acima ou escolha outra data/barbeiro.")
+        horario_agendamento = None # Define como Nulo para evitar erros
+    else:
+        horario_agendamento = st.selectbox("Horário", horarios_para_exibir) # Mostra APENAS os horários disponíveis
+
+    # --- FIM DA MÁGICA ---
 
     servicos_selecionados = st.multiselect("Serviços", lista_servicos)
 
-    # Exibir os preços com o símbolo R$
     st.write("Serviços disponíveis:")
     for servico in servicos:
         st.write(f"- {servico}")
 
-    submitted = st.form_submit_button("Confirmar Agendamento")
+    # O botão só aparece se houver um horário selecionável
+    submitted = False
+    if horario_agendamento:
+      submitted = st.form_submit_button("Confirmar Agendamento")
+
+# O restante do seu código (a partir de 'if submitted:') continua o mesmo.
+# A lógica de validação após o clique é mantida como uma segurança extra.
     
 
 if submitted:
@@ -867,3 +938,4 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
