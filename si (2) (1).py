@@ -419,7 +419,7 @@ def bloquear_horario(data, horario, barbeiro):
 # Interface Streamlit
 st.title("Barbearia Lucas Borges - Agendamentos")
 st.header("Faça seu agendamento ou cancele")
-st.image("https://github.com/barbearialb/sistemalb/blob/main/icone.png?raw=true", use_container_width=True)
+st.image("https://i.imgur.com/XVOXz8F.png", use_container_width=True)
 
 # Gerenciamento da Data Selecionada no Session State
 if 'data_agendamento' not in st.session_state:
@@ -867,3 +867,4 @@ if submitted_cancelar:
                 time.sleep(5)
                 st.rerun()
                 
+
